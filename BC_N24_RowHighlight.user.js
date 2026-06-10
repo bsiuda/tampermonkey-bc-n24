@@ -1,29 +1,29 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name         BC N24
 // @description  Oznaczanie pol i kolorowanie wierszy w Business Central dla zespolu N24.
 // @match        https://businesscentral.dynamics.com/*
 // @run-at       document-end
-// @version      1.1.2
+// @version      1.1.3
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // ==/UserScript==
 
 (function () {
 
-  // ─────────────────────────────────────────────────────────────
-  // 1. PODŚWIETLENIE PÓL (nagłówek dokumentu)
-  //    Grupy kolorystyczne dla pól sterowanych przez controlname.
-  //    Aby dodać pole: wstaw wpis "controlname": "Etykieta PL"
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // 1. PODĹšWIETLENIE PĂ“L (nagĹ‚Ăłwek dokumentu)
+  //    Grupy kolorystyczne dla pĂłl sterowanych przez controlname.
+  //    Aby dodaÄ‡ pole: wstaw wpis "controlname": "Etykieta PL"
   //    do wybranej grupy.
-  // ─────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const GROUPS = {
     red: {
       controls: {
         "Document Date":            'Data dokumentu ("D")',
-        "ITIDeliveryDateInvPeriod": 'Data usługi ("D")',
-        "ITI VAT Delivery Date":    'Data usługi ("D")',
-        "PostingDate":              "Data księgowania (ostatni dzień msc)",
-        "Posting Date":             "Data księgowania (ostatni dzień msc)"
+        "ITIDeliveryDateInvPeriod": 'Data usĹ‚ugi ("D")',
+        "ITI VAT Delivery Date":    'Data usĹ‚ugi ("D")',
+        "PostingDate":              "Data ksiÄ™gowania (ostatni dzieĹ„ msc)",
+        "Posting Date":             "Data ksiÄ™gowania (ostatni dzieĹ„ msc)"
       },
       style: {
         background:      "#ffcdd2",
@@ -56,14 +56,14 @@
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // 2. KOLOROWANIE WIERSZY SIATKI
-  //    match     — string lub tablica stringów (title= lub textContent)
-  //    className — klasa CSS dodawana do <tr>
-  //    matchMode — "equals" (domyślnie) albo "contains"
-  //    CSS klas definiuj w ROW_RULES_CSS poniżej.
-  //    Aby dodać regułę: dodaj obiekt i odpowiadający wpis w CSS.
-  // ─────────────────────────────────────────────────────────────
+  //    match     â€” string lub tablica stringĂłw (title= lub textContent)
+  //    className â€” klasa CSS dodawana do <tr>
+  //    matchMode â€” "equals" (domyĹ›lnie) albo "contains"
+  //    CSS klas definiuj w ROW_RULES_CSS poniĹĽej.
+  //    Aby dodaÄ‡ reguĹ‚Ä™: dodaj obiekt i odpowiadajÄ…cy wpis w CSS.
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const ROW_RULES = [
     { match: "Fixed Price",          className: "n24-row--fixed-price" },
     { match: "Time & Material",      className: "n24-row--tnm"         },
@@ -74,8 +74,8 @@
     { key: "W_KLIENT", aliases: ["W_KLIENT", "W_KLIENTA"] },
     { key: "W_LINIA_PRODUKTOWA", aliases: ["W_LINIA PRODUKTOWA", "W_LINIA_PRODUKTOWA"] },
     { key: "W_PROJEKT_TYP", aliases: ["W_PROJEKT TYP", "W_PROJEKT_TYP"] },
-    { key: "W_RODZAJ_DZIALANIA", aliases: ["W_RODZAJ DZIAŁANIA", "W_RODZAJ_DZIAŁANIA", "W_RODZAJ DZIALANIA"] },
-    { key: "W_DZIAL", aliases: ["W_DZIAŁ", "W_DZIAL"] }
+    { key: "W_RODZAJ_DZIALANIA", aliases: ["W_RODZAJ DZIAĹANIA", "W_RODZAJ_DZIAĹANIA", "W_RODZAJ DZIALANIA"] },
+    { key: "W_DZIAL", aliases: ["W_DZIAĹ", "W_DZIAL"] }
   ];
 
   const MASK_SOURCE_TEXT = "BE778D2A";
@@ -92,15 +92,15 @@
   }
 
   const ROW_RULES_CSS = `
-    /* Fixed Price — bardzo jasny zielony */
+    /* Fixed Price â€” bardzo jasny zielony */
     tr.n24-row--fixed-price td {
       background-color: #e8f5e9 !important;
     }
-    /* Time & Material — bardzo jasny żółty */
+    /* Time & Material â€” bardzo jasny ĹĽĂłĹ‚ty */
     tr.n24-row--tnm td {
       background-color: #fffde7 !important;
     }
-    /* Suma / Total — pogrubiony tekst */
+    /* Suma / Total â€” pogrubiony tekst */
     tr.n24-row--summary td {
       font-weight: 700 !important;
     }
@@ -109,15 +109,15 @@
       font-weight: 700 !important;
     }
 
-    /* Brak wymaganych pól W_* — czerwony cały wiersz (priorytet) */
+    /* Brak wymaganych pĂłl W_* â€” czerwony caĹ‚y wiersz (priorytet) */
     tr.n24-row--missing-required td {
       background-color: #ffcdd2 !important;
     }
   `;
 
-  // ─────────────────────────────────────────────────────────────
-  // Implementacja — nie trzeba tu nic zmieniać
-  // ─────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Implementacja â€” nie trzeba tu nic zmieniaÄ‡
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   function buildFieldCSS() {
     return Object.entries(GROUPS).map(([, group]) => {
@@ -186,8 +186,8 @@
 
           const pickerBtn = container.querySelector(".ms-nav-valuepickerbutton-embedded");
           if (pickerBtn) {
-            pickerBtn.setAttribute("title", `Otwórz selektor daty dla ${newText}`);
-            pickerBtn.setAttribute("aria-label", `Otwórz selektor daty dla ${newText}`);
+            pickerBtn.setAttribute("title", `OtwĂłrz selektor daty dla ${newText}`);
+            pickerBtn.setAttribute("aria-label", `OtwĂłrz selektor daty dla ${newText}`);
           }
         });
       });
@@ -229,14 +229,15 @@
     headers.forEach(h => {
       const headerNorm = normalizeText(h.textContent || "");
       requiredHeaderNorms.forEach(req => {
-        const matched = req.aliases.some(alias =>
-          headerNorm === alias || headerNorm.startsWith(alias) || alias.startsWith(headerNorm)
-        );
+        const matched = req.aliases.some(alias => headerNorm === alias);
         if (matched) {
           headerIdByKey.set(req.key, h.id);
         }
       });
     });
+
+    // Jesli zadna kolumna W_* nie jest widoczna na tej stronie, pomijamy walidacje
+    const pageHasRequiredColumns = headerIdByKey.size > 0;
 
     document.querySelectorAll('tr[role="row"][rowkey]').forEach(row => {
       const rawValues =
@@ -249,7 +250,7 @@
         .filter(Boolean);
       const normalizedValuesLower = normalizedValues.map(v => v.toLowerCase());
 
-      // Wyczyść poprzednie klasy n24, dodaj pasujące
+      // WyczyĹ›Ä‡ poprzednie klasy n24, dodaj pasujÄ…ce
       row.classList.remove(...allClasses);
 
       ROW_RULES.forEach(rule => {
@@ -270,11 +271,11 @@
 
       const isSummaryRow = row.classList.contains("n24-row--summary");
 
-      const hasMissingRequired = !isSummaryRow && REQUIRED_HEADERS.some(required => {
+      const hasMissingRequired = !isSummaryRow && pageHasRequiredColumns && REQUIRED_HEADERS.some(required => {
         const headerId = headerIdByKey.get(required.key);
         if (!headerId) return false;
 
-        // Czytamy komórkę po tokenie aria-labelledby=column_header_xxx
+        // Czytamy komĂłrkÄ™ po tokenie aria-labelledby=column_header_xxx
         const cell = row.querySelector(`[aria-labelledby~="${headerId}"]`);
         if (!cell) return true;
 
@@ -305,3 +306,4 @@
   const observer = new MutationObserver(run);
   observer.observe(document.documentElement, { childList: true, subtree: true });
 })();
+
