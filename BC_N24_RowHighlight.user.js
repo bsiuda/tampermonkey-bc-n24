@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         BC N24
+// @description  Oznaczanie pol i kolorowanie wierszy w Business Central dla zespolu N24.
 // @match        https://businesscentral.dynamics.com/*
 // @run-at       document-end
-// @version      1.0.0
-// @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/master/BC_N24_RowHighlight.user.js
-// @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/master/BC_N24_RowHighlight.user.js
+// @version      1.1.0
+// @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
+// @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // ==/UserScript==
 
 (function () {

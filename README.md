@@ -1,52 +1,52 @@
 # BC N24 Tampermonkey Script
 
-Userscript do Business Central, rozwijany pod Tampermonkey.
+Userscript do Business Central rozwijany pod Tampermonkey.
 
-## Repo
+## Linki
 
 - Repozytorium: https://github.com/bsiuda/tampermonkey-bc-n24
-- Plik instalacyjny: https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/master/BC_N24_RowHighlight.user.js
+- Instalacja / aktualizacja: https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 
 ## Co robi skrypt
 
-Skrypt dodaje pomocnicze oznaczenia w interfejsie Business Central:
+Skrypt pomaga w codziennej pracy w Business Central:
 - podmienia wybrane etykiety pol,
-- koloruje wybrane pola w naglowku,
-- koloruje wiersze siatki wedlug warunkow,
-- oznacza wiersze z brakami w wymaganych polach W_*,
-- pogrubia wiersze typu Suma / Total.
+- koloruje wskazane pola w naglowku,
+- oznacza wiersze wedlug typu budzetu,
+- zaznacza wiersze z brakami w wymaganych polach `W_*`,
+- pogrubia wiersze typu `Suma` / `Total`.
 
-## Instalacja
+## Szybka instalacja
 
 1. Zainstaluj rozszerzenie Tampermonkey w przegladarce.
-2. Otworz link do pliku `.user.js`:
-   https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/master/BC_N24_RowHighlight.user.js
-3. Tampermonkey wykryje userscript i otworzy ekran instalacji.
+2. Otworz link:
+   https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
+3. Tampermonkey wykryje skrypt automatycznie.
 4. Kliknij `Install`.
 5. Odswiez Business Central.
 
-## Aktualizacje
+## Jak aktualizowac skrypt
 
-Skrypt ma ustawione:
+Skrypt ma ustawione metadane:
 - `@downloadURL`
 - `@updateURL`
+- `@version`
 
-Dzieki temu Tampermonkey moze pobierac nowe wersje z repozytorium.
+Dzieki temu Tampermonkey moze wykrywac nowe wersje.
 
-Przy zmianach w skrypcie warto:
-1. zmienic `@version` w naglowku skryptu,
-2. zacommitowac i wypchnac zmiany do repo,
-3. odczekac chwile lub wymusic update w Tampermonkey.
+Gdy opublikujesz zmiany:
+1. podnies `@version` w pliku `.user.js`,
+2. wypchnij zmiany do repo,
+3. w Tampermonkey uruchom `Check for userscript updates` albo poczekaj na automatyczne sprawdzenie.
 
-## Edycja i publikacja
+## Workflow dla edycji
 
 Lokalny folder repo:
 `tampermonkey-bc-n24`
 
-Podstawowy workflow:
+Najprostszy workflow po zmianie skryptu w katalogu roboczym:
 
 ```powershell
-after editing the script:
 Copy-Item '.\BC_N24_RowHighlight.user.js' '.\tampermonkey-bc-n24\BC_N24_RowHighlight.user.js' -Force
 Push-Location '.\tampermonkey-bc-n24'
 git add .
@@ -55,8 +55,24 @@ git push
 Pop-Location
 ```
 
-## Wazne uwagi
+## Udostepnianie zespolowi
 
-- Po zmianie logiki dobrze podniesc `@version`.
-- Jesli kilka osob ma korzystac ze skryptu, wszyscy powinni instalowac go z linku `raw.githubusercontent.com`, a nie z lokalnego pliku.
-- Repo jest publiczne, wiec link instalacyjny dziala bez logowania do GitHub.
+- repo jest publiczne,
+- link `raw.githubusercontent.com` dziala bez logowania,
+- wszyscy powinni instalowac skrypt z jednego centralnego URL, a nie z lokalnego pliku.
+
+## Changelog
+
+### 1.1.0
+
+- dodano `@description`,
+- uporzadkowano instrukcje instalacji,
+- przygotowano repo pod branch `main`,
+- ujednolicono linki aktualizacji.
+
+### 1.0.0
+
+- pierwsza publikacja skryptu,
+- kolorowanie wierszy i pol,
+- obsluga brakow w polach `W_*`,
+- pogrubienie wierszy `Suma` / `Total`.
