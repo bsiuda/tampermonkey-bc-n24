@@ -3,7 +3,7 @@
 // @description  Oznaczanie pol i kolorowanie wierszy w Business Central dla zespolu N24.
 // @match        https://businesscentral.dynamics.com/*
 // @run-at       document-end
-// @version      1.1.1
+// @version      1.1.2
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // ==/UserScript==
@@ -197,7 +197,7 @@
   function applySensitiveTextMask() {
     const source = MASK_SOURCE_TEXT.toUpperCase();
 
-    document.querySelectorAll('[role="textbox"], a[role="button"], input, [role="combobox"], .stringcontrol-read.value').forEach((el) => {
+    document.querySelectorAll('[role="textbox"], a[role="button"], .stringcontrol-read.value').forEach((el) => {
       const text = (el.textContent || "").trim();
       const title = el.getAttribute("title") || "";
       const aria = el.getAttribute("aria-label") || "";
@@ -212,14 +212,6 @@
 
       if (aria && aria.toUpperCase().includes(source) && aria !== MASK_TARGET_TEXT) {
         el.setAttribute("aria-label", MASK_TARGET_TEXT);
-      }
-
-      if ((el.tagName === "INPUT" || el.getAttribute("role") === "combobox") && typeof el.value === "string") {
-        const currentValue = el.value || "";
-        if (currentValue.toUpperCase().includes(source) && currentValue !== MASK_TARGET_TEXT) {
-          el.value = MASK_TARGET_TEXT;
-          el.setAttribute("value", MASK_TARGET_TEXT);
-        }
       }
     });
   }
