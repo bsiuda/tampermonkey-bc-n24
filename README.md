@@ -2,6 +2,10 @@
 
 Userscript do Business Central rozwijany pod Tampermonkey.
 
+![Version](https://img.shields.io/badge/version-1.1.0-0a7b83?style=flat-square)
+![Tampermonkey](https://img.shields.io/badge/Tampermonkey-userscript-4caf50?style=flat-square)
+![Business Central](https://img.shields.io/badge/Business%20Central-N24-1f6feb?style=flat-square)
+
 ## Linki
 
 - Repozytorium: https://github.com/bsiuda/tampermonkey-bc-n24
@@ -24,6 +28,15 @@ Skrypt pomaga w codziennej pracy w Business Central:
 3. Tampermonkey wykryje skrypt automatycznie.
 4. Kliknij `Install`.
 5. Odswiez Business Central.
+
+## Krotka instrukcja dla zespolu
+
+Tekst do wyslania dalej:
+
+> Zainstaluj Tampermonkey w przegladarce, potem otworz link:
+> https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
+> Tampermonkey sam wykryje skrypt. Kliknij `Install`, a potem odswiez Business Central.
+> Kolejne aktualizacje beda pobierane z tego samego linku.
 
 ## Jak aktualizowac skrypt
 
