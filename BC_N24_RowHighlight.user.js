@@ -3,7 +3,7 @@
 // @description  Oznaczanie pol i kolorowanie wierszy w Business Central dla zespolu N24.
 // @match        https://businesscentral.dynamics.com/*
 // @run-at       document-end
-// @version      1.1.0
+// @version      1.1.1
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // ==/UserScript==
@@ -77,6 +77,9 @@
     { key: "W_RODZAJ_DZIALANIA", aliases: ["W_RODZAJ DZIAŁANIA", "W_RODZAJ_DZIAŁANIA", "W_RODZAJ DZIALANIA"] },
     { key: "W_DZIAL", aliases: ["W_DZIAŁ", "W_DZIAL"] }
   ];
+
+  const MASK_SOURCE_TEXT = "BE778D2A";
+  const MASK_TARGET_TEXT = "DEL_BSIUDA";
 
   function normalizeText(value) {
     return (value || "")
@@ -191,6 +194,36 @@
     });
   }
 
+  function applySensitiveTextMask() {
+    const source = MASK_SOURCE_TEXT.toUpperCase();
+
+    document.querySelectorAll('[role="textbox"], a[role="button"], input, [role="combobox"], .stringcontrol-read.value').forEach((el) => {
+      const text = (el.textContent || "").trim();
+      const title = el.getAttribute("title") || "";
+      const aria = el.getAttribute("aria-label") || "";
+
+      if (text && text.toUpperCase().includes(source) && text !== MASK_TARGET_TEXT) {
+        el.textContent = MASK_TARGET_TEXT;
+      }
+
+      if (title && title.toUpperCase().includes(source) && title !== MASK_TARGET_TEXT) {
+        el.setAttribute("title", MASK_TARGET_TEXT);
+      }
+
+      if (aria && aria.toUpperCase().includes(source) && aria !== MASK_TARGET_TEXT) {
+        el.setAttribute("aria-label", MASK_TARGET_TEXT);
+      }
+
+      if ((el.tagName === "INPUT" || el.getAttribute("role") === "combobox") && typeof el.value === "string") {
+        const currentValue = el.value || "";
+        if (currentValue.toUpperCase().includes(source) && currentValue !== MASK_TARGET_TEXT) {
+          el.value = MASK_TARGET_TEXT;
+          el.setAttribute("value", MASK_TARGET_TEXT);
+        }
+      }
+    });
+  }
+
   function applyRowHighlights() {
     const allClasses = ROW_RULES.map(r => r.className);
     allClasses.push("n24-row--missing-required");
@@ -270,6 +303,7 @@
 
   function run() {
     ensureStyles();
+    applySensitiveTextMask();
     applyFieldLabels();
     applyRowHighlights();
   }
