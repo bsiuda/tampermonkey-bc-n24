@@ -2,8 +2,9 @@
 // @name         BC N24
 // @description  Oznaczanie pol i kolorowanie wierszy w Business Central dla zespolu N24.
 // @match        https://businesscentral.dynamics.com/*
+// @match        https://app.hrnest.io/*
 // @run-at       document-end
-// @version      1.1.3
+// @version      1.2.0
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // ==/UserScript==
@@ -80,6 +81,16 @@
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
+
+  const AUTO_APPROVE_DELAY_MS = 1200;
+  const AUTO_APPROVE_CLICK_FLAG_PREFIX = "n24_autoapprove_clicked";
+  const AUTO_APPROVE_ALLOWED_PATHS = [
+    "/requests",
+    "/approvals",
+    "/wnioski"
+  ];
+
+  let autoApprovePendingClickTimer = null;
 
   function normalizeText(value) {
     return (value || "")
@@ -294,11 +305,94 @@
     });
   }
 
+  function isHrnestAutoApprovePathAllowed() {
+    if (location.hostname !== "app.hrnest.io") return false;
+    const path = (location.pathname || "").toLowerCase();
+    return AUTO_APPROVE_ALLOWED_PATHS.some(prefix => path.startsWith(prefix));
+  }
+
+  function isHrnestErrorScreenVisible() {
+    const pageText = normalizeText(document.body?.innerText || "");
+    if (!pageText) return false;
+    return pageText.includes("przepraszamyoperacjaniemozebycwykonana")
+      || pageText.includes("zabierzmnienadashboard");
+  }
+
+  function findHrnestMatchingRequestRow() {
+    const rows = document.querySelectorAll(".form__row.form__row--lg");
+
+    for (const row of rows) {
+      const labelEl = row.querySelector(".form-detail__label");
+      const valueEl = row.querySelector(".form-detail__content .form-detail__text");
+
+      const label = normalizeText(labelEl?.textContent);
+      const value = normalizeText(valueEl?.textContent);
+
+      if (label === "rodzajwniosku" && value === "pracazdomu") {
+        return row;
+      }
+    }
+
+    return null;
+  }
+
+  function findHrnestApproveButton() {
+    const buttons = document.querySelectorAll('button[type="submit"][value="approve"], button[value="approve"]');
+
+    for (const btn of buttons) {
+      const text = normalizeText(btn.textContent);
+      const ariaDisabled = btn.getAttribute("aria-disabled");
+      const isDisabled = btn.disabled || ariaDisabled === "true";
+
+      if (text === "zatwierdz" && !isDisabled) {
+        return btn;
+      }
+    }
+
+    return null;
+  }
+
+  function getHrnestAutoApproveClickFlagKey() {
+    return `${AUTO_APPROVE_CLICK_FLAG_PREFIX}:${location.pathname}${location.search}`;
+  }
+
+  function applyHrnestAutoApprovePracaZDomu() {
+    if (!isHrnestAutoApprovePathAllowed()) return;
+    if (autoApprovePendingClickTimer) return;
+    if (isHrnestErrorScreenVisible()) return;
+
+    const clickFlagKey = getHrnestAutoApproveClickFlagKey();
+    if (sessionStorage.getItem(clickFlagKey) === "1") return;
+    if (!findHrnestMatchingRequestRow()) return;
+
+    const approveButton = findHrnestApproveButton();
+    if (!approveButton) return;
+
+    autoApprovePendingClickTimer = setTimeout(() => {
+      autoApprovePendingClickTimer = null;
+
+      if (!isHrnestAutoApprovePathAllowed()) return;
+      if (isHrnestErrorScreenVisible()) return;
+      if (sessionStorage.getItem(clickFlagKey) === "1") return;
+      if (!findHrnestMatchingRequestRow()) return;
+
+      const freshButton = findHrnestApproveButton();
+      if (!freshButton || !freshButton.isConnected) return;
+
+      sessionStorage.setItem(clickFlagKey, "1");
+      freshButton.click();
+
+      const ts = new Date().toISOString();
+      console.log(`[N24 AutoApprove][${ts}] Kliknieto 'Zatwierdz' po opoznieniu ${AUTO_APPROVE_DELAY_MS}ms dla rodzaju wniosku: Praca z domu`);
+    }, AUTO_APPROVE_DELAY_MS);
+  }
+
   function run() {
     ensureStyles();
     applySensitiveTextMask();
     applyFieldLabels();
     applyRowHighlights();
+    applyHrnestAutoApprovePracaZDomu();
   }
 
   run();
