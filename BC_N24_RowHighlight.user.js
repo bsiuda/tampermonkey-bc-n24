@@ -3,8 +3,9 @@
 // @description  Oznaczanie pol i kolorowanie wierszy w Business Central dla zespolu N24.
 // @match        https://businesscentral.dynamics.com/*
 // @match        https://app.hrnest.io/*
+// @match        *://*/*
 // @run-at       document-end
-// @version      1.2.0
+// @version      1.3.0
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // ==/UserScript==
@@ -387,12 +388,78 @@
     }, AUTO_APPROVE_DELAY_MS);
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // 4. LINKIFIKACJA VULCAN
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const VULCAN_URL = "https://wiadomosci.eduvulcan.pl/gminawilkowice/App/odebrane";
+  const VULCAN_MARKER = "data-n24-vulcan";
+
+  function linkifyVulcanText() {
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          // Skip already-processed parents and script/style nodes
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          const tag = parent.tagName;
+          if (tag === "SCRIPT" || tag === "STYLE" || tag === "A") return NodeFilter.FILTER_REJECT;
+          if (parent.closest(`[${VULCAN_MARKER}]`)) return NodeFilter.FILTER_REJECT;
+          return node.nodeValue && node.nodeValue.includes("VULCAN") && node.nodeValue.includes("dziennika elektronicznego")
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT;
+        }
+      }
+    );
+
+    const nodes = [];
+    let node;
+    while ((node = walker.nextNode())) nodes.push(node);
+
+    nodes.forEach(textNode => {
+      const text = textNode.nodeValue;
+      const idx = text.indexOf("VULCAN");
+      if (idx === -1) return;
+
+      const before = text.slice(0, idx);
+      const after  = text.slice(idx + 6);
+
+      const link = document.createElement("a");
+      link.href = VULCAN_URL;
+      link.textContent = "VULCAN";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.setAttribute(VULCAN_MARKER, "1");
+      link.style.cssText = "color:#1565c0;text-decoration:underline;font-weight:bold;";
+
+      const fragment = document.createDocumentFragment();
+      if (before) fragment.appendChild(document.createTextNode(before));
+      fragment.appendChild(link);
+      if (after)  fragment.appendChild(document.createTextNode(after));
+
+      textNode.parentNode.replaceChild(fragment, textNode);
+    });
+  }
+
   function run() {
-    ensureStyles();
-    applySensitiveTextMask();
-    applyFieldLabels();
-    applyRowHighlights();
-    applyHrnestAutoApprovePracaZDomu();
+    const host = location.hostname || "";
+    const isBC     = host.includes("businesscentral.dynamics.com");
+    const isHRnest = host === "app.hrnest.io";
+
+    if (isBC) {
+      ensureStyles();
+      applySensitiveTextMask();
+      applyFieldLabels();
+      applyRowHighlights();
+    }
+
+    if (isHRnest) {
+      applyHrnestAutoApprovePracaZDomu();
+    }
+
+    linkifyVulcanText();
   }
 
   run();
