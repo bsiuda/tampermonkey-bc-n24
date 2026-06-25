@@ -3,7 +3,7 @@
 // @description  Dodaje przycisk kopiujący linki do profili z wyników wyszukiwania LinkedIn (People Search).
 // @match        https://www.linkedin.com/search/results/people/*
 // @run-at       document-idle
-// @version      1.0.0
+// @version      1.1.0
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/LinkedIn_CopyProfileLinks.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/LinkedIn_CopyProfileLinks.user.js
 // ==/UserScript==
@@ -69,23 +69,33 @@
         return;
       }
 
-      navigator.clipboard.writeText(links.join('\n')).then(() => {
+      const text = links.join('\n') + '\n';
+
+      const afterCopy = () => {
         flash(btn, `✅ Skopiowano ${links.length}`, '#2e7d32');
-      }).catch(() => {
+        clickNext();
+      };
+
+      navigator.clipboard.writeText(text).then(afterCopy).catch(() => {
         // fallback dla starszych przeglądarek
         const ta = document.createElement('textarea');
-        ta.value = links.join('\n');
+        ta.value = text;
         ta.style.position = 'fixed';
         ta.style.opacity  = '0';
         document.body.appendChild(ta);
         ta.select();
         document.execCommand('copy');
         ta.remove();
-        flash(btn, `✅ Skopiowano ${links.length}`, '#2e7d32');
+        afterCopy();
       });
     });
 
     document.body.appendChild(btn);
+  }
+
+  function clickNext() {
+    const next = document.querySelector('[data-testid="pagination-controls-next-button-visible"]');
+    if (next && !next.disabled) next.click();
   }
 
   function flash(btn, label, color) {
