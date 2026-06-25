@@ -3,7 +3,7 @@
 // @description  Dodaje przycisk kopiujący linki do profili z wyników wyszukiwania LinkedIn (People Search).
 // @match        https://www.linkedin.com/search/results/people/*
 // @run-at       document-idle
-// @version      1.1.0
+// @version      1.2.0
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/LinkedIn_CopyProfileLinks.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/LinkedIn_CopyProfileLinks.user.js
 // ==/UserScript==
@@ -94,8 +94,11 @@
   }
 
   function clickNext() {
-    const next = document.querySelector('[data-testid="pagination-controls-next-button-visible"]');
-    if (next && !next.disabled) next.click();
+    setTimeout(() => {
+      const next = document.querySelector('[data-testid="pagination-controls-next-button-visible"]');
+      if (!next || next.disabled) return;
+      next.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+    }, 400);
   }
 
   function flash(btn, label, color) {
