@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.0
+// @version      1.4.1
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // ==/UserScript==
@@ -392,8 +392,13 @@
     const btn = document.querySelector('button[type="submit"][name="btn"][value="confirm"]');
     if (!btn || btn.dataset.n24Clicked) return;
     btn.dataset.n24Clicked = "1";
-    btn.click();
-    console.log("[N24 AutoLogin] Kliknieto 'Zaloguj sie' na HRnest.");
+    setTimeout(() => {
+      const freshBtn = document.querySelector('button[type="submit"][name="btn"][value="confirm"]');
+      if (freshBtn && freshBtn.isConnected) {
+        freshBtn.click();
+        console.log("[N24 AutoLogin] Kliknieto 'Zaloguj sie' na HRnest.");
+      }
+    }, 2000);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
