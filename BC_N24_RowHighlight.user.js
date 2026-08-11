@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.1
+// @version      1.4.2
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // ==/UserScript==
@@ -13,19 +13,19 @@
 (function () {
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // 1. PODĹšWIETLENIE PĂ“L (nagĹ‚Ăłwek dokumentu)
-  //    Grupy kolorystyczne dla pĂłl sterowanych przez controlname.
-  //    Aby dodaÄ‡ pole: wstaw wpis "controlname": "Etykieta PL"
+  // 1. PODŚWIETLENIE PÓL (nagłówek dokumentu)
+  //    Grupy kolorystyczne dla pól sterowanych przez controlname.
+  //    Aby dodać pole: wstaw wpis "controlname": "Etykieta PL"
   //    do wybranej grupy.
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const GROUPS = {
     red: {
       controls: {
         "Document Date":            'Data dokumentu ("D")',
-        "ITIDeliveryDateInvPeriod": 'Data usĹ‚ugi ("D")',
-        "ITI VAT Delivery Date":    'Data usĹ‚ugi ("D")',
-        "PostingDate":              "Data ksiÄ™gowania (ostatni dzieĹ„ msc)",
-        "Posting Date":             "Data ksiÄ™gowania (ostatni dzieĹ„ msc)"
+        "ITIDeliveryDateInvPeriod": 'Data usługi ("D")',
+        "ITI VAT Delivery Date":    'Data usługi ("D")',
+        "PostingDate":              "Data księgowania (ostatni dzień msc)",
+        "Posting Date":             "Data księgowania (ostatni dzień msc)"
       },
       style: {
         background:      "#ffcdd2",
@@ -76,8 +76,8 @@
     { key: "W_KLIENT", aliases: ["W_KLIENT", "W_KLIENTA"] },
     { key: "W_LINIA_PRODUKTOWA", aliases: ["W_LINIA PRODUKTOWA", "W_LINIA_PRODUKTOWA"] },
     { key: "W_PROJEKT_TYP", aliases: ["W_PROJEKT TYP", "W_PROJEKT_TYP"] },
-    { key: "W_RODZAJ_DZIALANIA", aliases: ["W_RODZAJ DZIAĹANIA", "W_RODZAJ_DZIAĹANIA", "W_RODZAJ DZIALANIA"] },
-    { key: "W_DZIAL", aliases: ["W_DZIAĹ", "W_DZIAL"] }
+    { key: "W_RODZAJ_DZIALANIA", aliases: ["W_RODZAJ DZIAŁANIA", "W_RODZAJ_DZIAŁANIA", "W_RODZAJ DZIALANIA"] },
+    { key: "W_DZIAL", aliases: ["W_DZIAŁ", "W_DZIAL"] }
   ];
 
   const MASK_SOURCE_TEXT = "BE778D2A";
