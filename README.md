@@ -92,7 +92,7 @@ Pop-Location
 
 ## mBank — kolory i ikony transakcji
 
-Dodatkowy skrypt `mBank_RowHighlight.user.js`, wersja **1.3.1**, działa na podstronach `https://online.mbank.pl/*`.
+Dodatkowy skrypt `mBank_RowHighlight.user.js`, wersja **1.3.2**, działa na podstronach `https://online.mbank.pl/*`.
 
 [Zainstaluj skrypt mBank](https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/mBank_RowHighlight.user.js)
 
