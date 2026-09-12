@@ -89,3 +89,32 @@ Pop-Location
 - kolorowanie wierszy i pol,
 - obsluga brakow w polach `W_*`,
 - pogrubienie wierszy `Suma` / `Total`.
+
+## mBank — kolory i ikony transakcji
+
+Dodatkowy skrypt `mBank_RowHighlight.user.js`, wersja **1.3.1**, działa na podstronach `https://online.mbank.pl/*`.
+
+[Zainstaluj skrypt mBank](https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/mBank_RowHighlight.user.js)
+
+Po wejściu do `/futurepaymentsnew` ustawia dzień daty końcowej filtra na **13**, zachowując miesiąc i rok odczytane z pola. Wykonuje jedną automatyczną zmianę na wejście, a następnie pozwala edytować datę ręcznie.
+
+W tabelach rozpoznaje kolumny „Opis” i „Typ transakcji” po nagłówkach:
+
+| Warunek | Kolor i ikona |
+| --- | --- |
+| Opis zawiera KCZ, IKZE, darowizna lub XTB | Zielony, wykres wzrostu |
+| Opis zawiera Spłata pożyczki lub Santander Leasing | Czerwony, karta — raty / kredyty / leasing |
+| Typ transakcji zawiera Subskrypcja | Pomarańczowy, cykliczne strzałki |
+| Opis zawiera Tauron lub Spółka Wodociągowa | Niebieski, rachunek |
+
+Dopasowanie pomija wielkość liter, polskie znaki i nadmiarowe odstępy. Przy zbiegu reguł obowiązuje kolejność: czerwony, niebieski, pomarańczowy, zielony. Ikony pokazują nazwę kategorii po najechaniu; oznaczenia są aktualizowane po zmianach zawartości listy.
+
+### Instalacja i aktualizacje skryptu mBank
+
+1. Otwórz powyższy link z włączonym Tampermonkey i zainstaluj skrypt.
+2. Jeżeli korzystasz z wcześniejszej kopii wklejanej ręcznie, zastąp ją tą wersją i pozostaw włączoną jedną kopię.
+3. Odśwież stronę mBanku.
+
+Metadane `@downloadURL` i `@updateURL` wskazują plik w tym repozytorium. Przy kolejnych wydaniach zwiększ `@version`.
+
+Skrypt nie zawiera przykładowych danych transakcji ani zewnętrznych bibliotek. Ikony SVG są zapisane w kodzie. Składnię i wygląd ikon sprawdzono lokalnie; nie zweryfikowano działania w zalogowanym mBanku ani list o innej strukturze HTML.
