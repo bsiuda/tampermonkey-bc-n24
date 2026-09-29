@@ -220,6 +220,7 @@
             desc.includes('velo') ||
             desc.includes('santander') ||
             desc.includes('raty') ||
+            desc.includes('kredytowa') ||
             desc.includes('santander leasing')
         ) {
             return 'red';
@@ -229,6 +230,9 @@
             desc.includes('p4') ||
             desc.includes('play') ||
             desc.includes('beskidnet') ||
+            desc.includes('aqua') ||
+            desc.includes('wójt') ||
+            desc.includes('podatek') ||
             desc.includes('spolka wodociagowa')
         ) {
             return 'blue';
@@ -245,6 +249,7 @@
             desc.includes('kcz') ||
             desc.includes('ikze') ||
             desc.includes('darowizna') ||
+            desc.includes('fundusz wakacyjny') ||
             desc.includes('xtb')
         ) {
             return 'green';
