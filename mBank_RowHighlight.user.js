@@ -219,7 +219,7 @@
             desc.includes('alior') ||
             desc.includes('velo') ||
             desc.includes('santander') ||
-            desc.includes('santander') ||
+            desc.includes('raty') ||
             desc.includes('santander leasing')
         ) {
             return 'red';
@@ -227,6 +227,7 @@
         if (
             desc.includes('tauron') ||
             desc.includes('p4') ||
+            desc.includes('play') ||
             desc.includes('beskidnet') ||
             desc.includes('spolka wodociagowa')
         ) {
