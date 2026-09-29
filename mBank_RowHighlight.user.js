@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         mBank - data końcowa do 13. dnia miesiąca
 // @namespace    local.mbank.date-filter
-// @version      1.3.2
+// @version      1.3.3
 // @description  Data do 13. dnia miesiąca, kolory i ikony kategorii transakcji.
 // @homepageURL  https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
 // @match        https://online.mbank.pl/*
@@ -216,17 +216,25 @@
         // Obsługujemy również literówki z opisu reguł.
         if (
             /splata pozycz(?:ki|yki)/.test(desc) ||
+            desc.includes('alior') ||
+            desc.includes('velo') ||
+            desc.includes('santander') ||
+            desc.includes('santander') ||
             desc.includes('santander leasing')
         ) {
             return 'red';
         }
         if (
             desc.includes('tauron') ||
+            desc.includes('p4') ||
+            desc.includes('beskidnet') ||
             desc.includes('spolka wodociagowa')
         ) {
             return 'blue';
         }
-        if (type.includes('subskrypcja') || type.includes('subskypcja')) {
+        if  desc.includes('netflix') || 
+            desc.includes('chatgpt') || 
+            (type.includes('subskrypcja') || type.includes('subskypcja')) {
             return 'orange';
         }
         if (
