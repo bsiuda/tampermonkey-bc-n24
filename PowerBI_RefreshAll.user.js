@@ -1,9 +1,10 @@
 // ==UserScript==
 // @name         Power BI - odświeżanie wszystkich elementów
 // @namespace    local.powerbi.refresh-queue
-// @version      1.0.1
+// @version      1.0.2
 // @description  Uruchamia po kolei przyciski „Odśwież teraz” w odstępie jednej sekundy i oznacza przetworzone wiersze.
 // @match        https://app.powerbi.com/groups/bbd5c61c-f85b-4fd4-80cc-89faade4223e/list*
+// @match        https://app.powerbi.com/groups/a8266aa2-bc91-4443-b49c-663a5fef8c62/list*
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/PowerBI_RefreshAll.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/PowerBI_RefreshAll.user.js
 // @run-at       document-idle
