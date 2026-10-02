@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Power BI - odświeżanie wszystkich elementów
 // @namespace    local.powerbi.refresh-queue
-// @version      1.0.0
+// @version      1.0.1
 // @description  Uruchamia po kolei przyciski „Odśwież teraz” w odstępie jednej sekundy i oznacza przetworzone wiersze.
 // @match        https://app.powerbi.com/groups/bbd5c61c-f85b-4fd4-80cc-89faade4223e/list*
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/PowerBI_RefreshAll.user.js
@@ -20,6 +20,11 @@
         'button[data-testid="quick-action-button-Odśwież teraz"]',
         'button[aria-label="Odśwież teraz"]'
     ].join(',');
+    const SPINNER_SELECTOR = [
+        'spinner[title="Trwa odświeżanie..."]',
+        '.dataflow-refresh-icons spinner',
+        '.dataflow-refresh-icons [data-testid="spinner"]'
+    ].join(',');
 
     const stateAttribute = 'data-tm-pbi-refresh-state';
     const queuedAttribute = 'data-tm-pbi-refresh-queued';
@@ -29,6 +34,8 @@
     const queuedButtons = new WeakSet();
     const processedButtons = new WeakSet();
     const processedKeys = new Set();
+    const queuedKeys = new Set();
+    const observedSpinnerKeys = new Set();
     const queue = [];
 
     let isRunning = true;
@@ -193,8 +200,8 @@
         return style.display !== 'none' && style.visibility !== 'hidden';
     }
 
-    function findRow(button) {
-        const semanticRow = button.closest([
+    function findRow(element) {
+        const semanticRow = element.closest([
             'tr',
             '[role="row"]',
             'mat-row',
@@ -207,48 +214,64 @@
         if (semanticRow) return semanticRow;
 
         // Awaryjnie wybieramy najbliższego szerokiego rodzica zawierającego
-        // dokładnie jeden przycisk odświeżania.
-        let element = button.parentElement;
-        let fallback = element;
+        // dokładnie jeden przycisk odświeżania albo spinner danego elementu.
+        let parent = element.parentElement;
+        let fallback = parent;
 
-        for (let depth = 0; element && depth < 8; depth += 1) {
-            const refreshButtons = element.querySelectorAll(BUTTON_SELECTOR);
-            const width = element.getBoundingClientRect().width;
+        for (let depth = 0; parent && depth < 8; depth += 1) {
+            const refreshButtons = parent.querySelectorAll(BUTTON_SELECTOR);
+            const hasSpinner = parent.querySelector(SPINNER_SELECTOR);
+            const width = parent.getBoundingClientRect().width;
 
-            if (refreshButtons.length === 1 && width >= 320) {
-                fallback = element;
+            if ((refreshButtons.length === 1 || hasSpinner) && width >= 320) {
+                fallback = parent;
                 break;
             }
-            element = element.parentElement;
+            parent = parent.parentElement;
         }
 
-        return fallback || button;
+        return fallback || element;
     }
 
-    function getRowKey(row, button) {
-        const link = row.querySelector([
-            'a[href*="/reports/"]',
-            'a[href*="/datasets/"]',
-            'a[href*="/semanticModels/"]',
-            'a[href*="/dataflows/"]'
-        ].join(','));
+    function getRowKey(row) {
+        const link = row.querySelector('a[href]');
 
-        if (link?.href) return `href:${link.href.split('?')[0]}`;
+        if (link?.href) {
+            return `href:${link.href.split('?')[0].split('#')[0]}`;
+        }
 
-        const stableId = row.getAttribute('data-object-id') ||
-            row.getAttribute('data-item-id') || row.id;
+        const idCarrier = row.matches('[data-object-id], [data-item-id]')
+            ? row
+            : row.querySelector('[data-object-id], [data-item-id]');
+        const stableId = idCarrier?.getAttribute('data-object-id') ||
+            idCarrier?.getAttribute('data-item-id');
         if (stableId) return `id:${stableId}`;
 
-        const title = row.querySelector('[data-testid*="name"], [title]')
-            ?.getAttribute('title');
-        if (title) return `title:${normalizeText(title)}`;
+        const nameElement = row.querySelector('[data-testid*="name" i]');
+        const name = normalizeText(nameElement?.textContent);
+        if (name) return `name:${name}`;
+
+        // Usuwamy wspólne kontrolki i spinner, aby kluczem była treść
+        // konkretnego elementu, a nie powtarzający się napis z przycisku.
+        const clone = row.cloneNode(true);
+        for (const removable of clone.querySelectorAll([
+            'button',
+            'mat-icon',
+            'spinner',
+            '.dataflow-refresh-icons',
+            '[data-testid="spinner"]'
+        ].join(','))) {
+            removable.remove();
+        }
+        const rowText = normalizeText(clone.textContent);
+        if (rowText) return `text:${rowText}`;
 
         // Ostatnia opcja działa, dopóki Power BI nie wymieni całego wiersza.
         if (!row.dataset.tmPbiLocalKey) {
             row.dataset.tmPbiLocalKey = crypto.randomUUID?.() ||
                 `${Date.now()}-${Math.random()}`;
         }
-        return `local:${row.dataset.tmPbiLocalKey}:${button.tabIndex}`;
+        return `local:${row.dataset.tmPbiLocalKey}`;
     }
 
     function setRowState(row, state) {
@@ -256,24 +279,65 @@
         row.setAttribute(stateAttribute, state);
     }
 
+    function syncRefreshIndicators() {
+        for (const spinner of document.querySelectorAll(SPINNER_SELECTOR)) {
+            const row = findRow(spinner);
+            const key = getRowKey(row);
+
+            observedSpinnerKeys.add(key);
+            processedKeys.add(key);
+            setRowState(row, 'running');
+        }
+
+        for (const row of document.querySelectorAll(
+            `[${stateAttribute}="running"]`
+        )) {
+            if (row.querySelector(SPINNER_SELECTOR)) continue;
+
+            const key = getRowKey(row);
+            if (observedSpinnerKeys.has(key)) {
+                setRowState(row, 'triggered');
+            }
+        }
+    }
+
+    function pruneQueue() {
+        for (let index = queue.length - 1; index >= 0; index -= 1) {
+            const item = queue[index];
+            if (isUsableButton(item.button) &&
+                !processedKeys.has(item.key)) continue;
+
+            queue.splice(index, 1);
+            queuedKeys.delete(item.key);
+            queuedButtons.delete(item.button);
+            item.button.removeAttribute?.(queuedAttribute);
+        }
+    }
+
     function scanForButtons() {
         ensureInterface();
+        syncRefreshIndicators();
 
         for (const button of document.querySelectorAll(BUTTON_SELECTOR)) {
             if (processedButtons.has(button) || queuedButtons.has(button)) continue;
 
             const row = findRow(button);
-            const key = getRowKey(row, button);
+            const key = getRowKey(row);
 
             if (processedKeys.has(key)) {
                 processedButtons.add(button);
-                setRowState(row, 'triggered');
+                const isRefreshing = row.querySelector(SPINNER_SELECTOR);
+                const state = isRefreshing || !observedSpinnerKeys.has(key)
+                    ? 'running'
+                    : 'triggered';
+                setRowState(row, state);
                 continue;
             }
 
-            if (!isUsableButton(button)) continue;
+            if (!isUsableButton(button) || queuedKeys.has(key)) continue;
 
             queuedButtons.add(button);
+            queuedKeys.add(key);
             button.setAttribute(queuedAttribute, 'true');
             queue.push({ button, row, key });
         }
@@ -284,11 +348,16 @@
     function processNext() {
         if (!isRunning) return;
 
+        // Power BI potrafi wymienić wszystkie elementy DOM po pierwszym
+        // kliknięciu. Najpierw usuwamy więc nieaktualne referencje.
+        pruneQueue();
         scanForButtons();
 
         let item = queue.shift();
         while (item && (!isUsableButton(item.button) ||
             processedKeys.has(item.key))) {
+            queuedKeys.delete(item.key);
+            queuedButtons.delete(item.button);
             item = queue.shift();
         }
 
@@ -298,6 +367,8 @@
         }
 
         const { button, row, key } = item;
+        queuedKeys.delete(key);
+        queuedButtons.delete(button);
         processedButtons.add(button);
         processedKeys.add(key);
         button.removeAttribute(queuedAttribute);
@@ -306,10 +377,6 @@
         try {
             button.click();
             clickedCount += 1;
-
-            // Zielony oznacza, że kliknięcie zostało wysłane. Nie jest to
-            // potwierdzenie zakończenia odświeżania po stronie usługi Power BI.
-            setTimeout(() => setRowState(row, 'triggered'), 850);
         } catch (error) {
             errorCount += 1;
             setRowState(row, 'error');
