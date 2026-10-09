@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Power BI - odświeżanie wszystkich elementów
 // @namespace    local.powerbi.refresh-queue
-// @version      1.0.2
+// @version      1.1.0
 // @description  Uruchamia po kolei przyciski „Odśwież teraz” w odstępie jednej sekundy i oznacza przetworzone wiersze.
 // @match        https://app.powerbi.com/groups/bbd5c61c-f85b-4fd4-80cc-89faade4223e/list*
 // @match        https://app.powerbi.com/groups/a8266aa2-bc91-4443-b49c-663a5fef8c62/list*
@@ -31,6 +31,7 @@
     const queuedAttribute = 'data-tm-pbi-refresh-queued';
     const styleId = 'tm-pbi-refresh-styles';
     const panelId = 'tm-pbi-refresh-panel';
+    const confirmationId = 'tm-pbi-refresh-confirmation';
 
     const queuedButtons = new WeakSet();
     const processedButtons = new WeakSet();
@@ -39,11 +40,13 @@
     const observedSpinnerKeys = new Set();
     const queue = [];
 
-    let isRunning = true;
+    let isRunning = false;
     let clickedCount = 0;
     let errorCount = 0;
     let tickTimer = null;
     let scanTimer = null;
+    let startTimer = null;
+    let observer = null;
 
     const styles = `
         [${stateAttribute}="running"] {
@@ -146,6 +149,89 @@
             background: #eef2f7;
         }
 
+        #${confirmationId} {
+            position: fixed;
+            inset: 0;
+            z-index: 2147483647;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            box-sizing: border-box;
+            background: rgba(15, 23, 42, 0.42);
+            backdrop-filter: blur(5px);
+            font-family: "Segoe UI", sans-serif;
+        }
+
+        #${confirmationId} .tm-pbi-confirmation-card {
+            width: min(440px, 100%);
+            padding: 26px;
+            box-sizing: border-box;
+            border: 1px solid rgba(255, 255, 255, 0.56);
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.97);
+            color: #172033;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+            text-align: center;
+        }
+
+        #${confirmationId} .tm-pbi-confirmation-icon {
+            display: grid;
+            place-items: center;
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 16px;
+            border-radius: 15px;
+            background: #eef5ff;
+            color: #2563a7;
+            font-size: 25px;
+            line-height: 1;
+        }
+
+        #${confirmationId} .tm-pbi-confirmation-title {
+            margin: 0;
+            font-size: 20px;
+            line-height: 1.35;
+            font-weight: 700;
+        }
+
+        #${confirmationId} .tm-pbi-confirmation-text {
+            margin: 9px 0 21px;
+            color: #667085;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        #${confirmationId} .tm-pbi-confirmation-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        #${confirmationId} button {
+            padding: 11px 18px;
+            border: 1px solid #d7dde7;
+            border-radius: 11px;
+            background: #f8fafc;
+            color: #344054;
+            cursor: pointer;
+            font: 700 14px/1 "Segoe UI", sans-serif;
+        }
+
+        #${confirmationId} button[data-answer="yes"] {
+            border-color: #2563a7;
+            background: #2563a7;
+            color: #fff;
+        }
+
+        #${confirmationId} button:hover {
+            filter: brightness(0.97);
+        }
+
+        #${confirmationId} button:focus-visible {
+            outline: 3px solid rgba(37, 99, 167, 0.28);
+            outline-offset: 2px;
+        }
+
         @media (prefers-reduced-motion: reduce) {
             [${stateAttribute}] {
                 animation: none !important;
@@ -154,13 +240,17 @@
         }
     `;
 
-    function ensureInterface() {
+    function ensureStyles() {
         if (!document.getElementById(styleId)) {
             const style = document.createElement('style');
             style.id = styleId;
             style.textContent = styles;
             (document.head || document.documentElement).appendChild(style);
         }
+    }
+
+    function ensureInterface() {
+        ensureStyles();
 
         if (document.getElementById(panelId)) return;
 
@@ -184,6 +274,77 @@
 
         document.body.appendChild(panel);
         updatePanel();
+    }
+
+    function showConfirmation() {
+        ensureStyles();
+
+        return new Promise(resolve => {
+            const previous = document.getElementById(confirmationId);
+            if (previous) previous.remove();
+
+            const overlay = document.createElement('div');
+            overlay.id = confirmationId;
+            overlay.innerHTML = `
+                <section
+                    class="tm-pbi-confirmation-card"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="tm-pbi-confirmation-title"
+                >
+                    <div class="tm-pbi-confirmation-icon" aria-hidden="true">↻</div>
+                    <h2
+                        id="tm-pbi-confirmation-title"
+                        class="tm-pbi-confirmation-title"
+                    >Czy chcesz odświeżyć wszystkie dane?</h2>
+                    <p class="tm-pbi-confirmation-text">
+                        Elementy zostaną uruchomione po kolei, w odstępie jednej sekundy.
+                    </p>
+                    <div class="tm-pbi-confirmation-actions">
+                        <button type="button" data-answer="no">Nie</button>
+                        <button type="button" data-answer="yes">Tak</button>
+                    </div>
+                </section>
+            `;
+
+            let settled = false;
+            const decide = answer => {
+                if (settled) return;
+                settled = true;
+                document.removeEventListener('keydown', handleKeydown);
+                overlay.remove();
+                resolve(answer);
+            };
+            const handleKeydown = event => {
+                if (event.key === 'Escape') decide(false);
+            };
+
+            overlay.querySelector('[data-answer="yes"]')
+                .addEventListener('click', () => decide(true));
+            overlay.querySelector('[data-answer="no"]')
+                .addEventListener('click', () => decide(false));
+            document.addEventListener('keydown', handleKeydown);
+            document.body.appendChild(overlay);
+            overlay.querySelector('[data-answer="yes"]').focus();
+        });
+    }
+
+    function startQueue() {
+        isRunning = true;
+        ensureInterface();
+
+        observer = new MutationObserver(scheduleScan);
+        observer.observe(document.documentElement, {
+            subtree: true,
+            childList: true
+        });
+
+        startTimer = setTimeout(() => {
+            startTimer = null;
+            scanForButtons();
+            processNext();
+            tickTimer = setInterval(processNext, CLICK_INTERVAL_MS);
+        }, START_DELAY_MS);
     }
 
     function normalizeText(value) {
@@ -413,22 +574,25 @@
         }, 200);
     }
 
-    const observer = new MutationObserver(scheduleScan);
-    observer.observe(document.documentElement, {
-        subtree: true,
-        childList: true
-    });
+    async function initialize() {
+        if (!document.body) {
+            await new Promise(resolve => {
+                document.addEventListener('DOMContentLoaded', resolve, {
+                    once: true
+                });
+            });
+        }
 
-    setTimeout(() => {
-        ensureInterface();
-        scanForButtons();
-        processNext();
-        tickTimer = setInterval(processNext, CLICK_INTERVAL_MS);
-    }, START_DELAY_MS);
+        const confirmed = await showConfirmation();
+        if (confirmed) startQueue();
+    }
+
+    initialize();
 
     window.addEventListener('pagehide', () => {
-        observer.disconnect();
+        observer?.disconnect();
         clearInterval(tickTimer);
         clearTimeout(scanTimer);
+        clearTimeout(startTimer);
     }, { once: true });
 })();
