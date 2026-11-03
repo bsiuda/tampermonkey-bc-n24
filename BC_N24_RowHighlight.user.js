@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.7
+// @version      1.4.8
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -77,12 +77,12 @@
     { key: "W_KLIENT", aliases: ["W_KLIENT", "W_KLIENTA"] },
     { key: "W_LINIA_PRODUKTOWA", aliases: ["W_LINIA PRODUKTOWA", "W_LINIA_PRODUKTOWA"] },
     { key: "W_PROJEKT_TYP", aliases: ["W_PROJEKT TYP", "W_PROJEKT_TYP"] },
-    { key: "W_RODZAJ_DZIALANIA", aliases: ["W_RODZAJ DZIAŁANIA", "W_RODZAJ_DZIAŁANIA", "W_RODZAJ DZIALANIA"] },
+    { key: "W_RODZAJ_DZIALANIA", aliases: ["W_RODZAJ DZIAŁANIA", "W_RODZAJ_DZIAŁANIA", "W_RODZAJ DZIALANIA", "W_RODZAJ DZIAŁANIA / PRODUKT"] },
     { key: "W_DZIAL", aliases: ["W_DZIAŁ", "W_DZIAL"] }
   ];
 
-  const COLORING_PAGE_IDS = new Set(["201", "1001", "1007", "50100"]);
-  const DIMENSION_INDICATOR_PAGE_ID = "1001";
+  const COLORING_PAGE_IDS = new Set(["201", "88", "1001", "1007", "50100"]);
+  const DIMENSION_INDICATOR_PAGE_IDS = new Set(["88", "1001"]);
   const QUANTITY_WARNING_PAGE_IDS = new Set(["201", "1007"]);
   const QUANTITY_WARNING_THRESHOLD = 6;
   const ROW_INDICATOR_ATTRIBUTE = "data-n24-row-indicator";
@@ -426,7 +426,7 @@
 
       const firstCell = row.querySelector('[role="gridcell"]');
       let indicator = null;
-      if (pageId === DIMENSION_INDICATOR_PAGE_ID && missingDimensions.length) {
+      if (DIMENSION_INDICATOR_PAGE_IDS.has(pageId) && missingDimensions.length) {
         const title = `Brak wymiarów: ${missingDimensions.join(", ")}`;
         indicator = {
           className: "n24-row-indicator--dimensions",
