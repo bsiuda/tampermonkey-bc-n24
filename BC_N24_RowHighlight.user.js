@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.4
+// @version      1.4.5
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -238,7 +238,7 @@
     if (pageId !== QUANTITY_WARNING_PAGE_ID || journalLongEntriesConfirmationPending) return;
 
     const confirmButton = [...dialog.querySelectorAll("button")].find(button => (
-      normalizeText(button.textContent) === "tak"
+      normalizeText(button.textContent) === "nie"
       && !button.disabled
       && button.getAttribute("aria-disabled") !== "true"
     ));
