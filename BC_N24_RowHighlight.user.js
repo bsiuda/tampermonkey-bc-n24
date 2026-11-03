@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.6
+// @version      1.4.7
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -81,9 +81,9 @@
     { key: "W_DZIAL", aliases: ["W_DZIAŁ", "W_DZIAL"] }
   ];
 
-  const COLORING_PAGE_IDS = new Set(["201", "1001", "50100"]);
+  const COLORING_PAGE_IDS = new Set(["201", "1001", "1007", "50100"]);
   const DIMENSION_INDICATOR_PAGE_ID = "1001";
-  const QUANTITY_WARNING_PAGE_ID = "201";
+  const QUANTITY_WARNING_PAGE_IDS = new Set(["201", "1007"]);
   const QUANTITY_WARNING_THRESHOLD = 6;
   const ROW_INDICATOR_ATTRIBUTE = "data-n24-row-indicator";
   const LONG_JOURNAL_CONFIRMATION_TEXT = "W dzienniku są zapisy dłuższe niż 8h";
@@ -235,7 +235,7 @@
       return;
     }
 
-    if (pageId !== QUANTITY_WARNING_PAGE_ID || journalLongEntriesConfirmationPending) return;
+    if (!QUANTITY_WARNING_PAGE_IDS.has(pageId) || journalLongEntriesConfirmationPending) return;
 
     const confirmButton = [...dialog.querySelectorAll("button")].find(button => (
       normalizeText(button.textContent) === "nie"
@@ -434,7 +434,7 @@
           title
         };
       } else if (
-        pageId === QUANTITY_WARNING_PAGE_ID
+        QUANTITY_WARNING_PAGE_IDS.has(pageId)
         && getRowQuantity(row) > QUANTITY_WARNING_THRESHOLD
       ) {
         indicator = {
