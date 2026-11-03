@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.3
+// @version      1.4.5
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -86,6 +86,7 @@
   const QUANTITY_WARNING_PAGE_ID = "201";
   const QUANTITY_WARNING_THRESHOLD = 6;
   const ROW_INDICATOR_ATTRIBUTE = "data-n24-row-indicator";
+  const LONG_JOURNAL_CONFIRMATION_TEXT = "W dzienniku są zapisy dłuższe niż 8H";
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
@@ -99,6 +100,7 @@
   ];
 
   let autoApprovePendingClickTimer = null;
+  let journalLongEntriesConfirmationPending = false;
 
   function normalizeText(value) {
     return (value || "")
@@ -221,6 +223,29 @@
 
   function isColoringPage(pageId) {
     return COLORING_PAGE_IDS.has(pageId);
+  }
+
+  function applyJournalLongEntriesConfirmation(pageId) {
+    const expectedText = normalizeText(LONG_JOURNAL_CONFIRMATION_TEXT);
+    const dialog = [...document.querySelectorAll(".message-dialog")]
+      .find(element => normalizeText(element.textContent).includes(expectedText));
+
+    if (!dialog) {
+      journalLongEntriesConfirmationPending = false;
+      return;
+    }
+
+    if (pageId !== QUANTITY_WARNING_PAGE_ID || journalLongEntriesConfirmationPending) return;
+
+    const confirmButton = [...dialog.querySelectorAll("button")].find(button => (
+      normalizeText(button.textContent) === "nie"
+      && !button.disabled
+      && button.getAttribute("aria-disabled") !== "true"
+    ));
+    if (!confirmButton) return;
+
+    journalLongEntriesConfirmationPending = true;
+    confirmButton.click();
   }
 
   function applyFieldLabels() {
@@ -582,6 +607,7 @@
       const coloringEnabled = isColoringPage(pageId);
       ensureStyles(coloringEnabled);
       applySensitiveTextMask();
+      applyJournalLongEntriesConfirmation(pageId);
       if (coloringEnabled) {
         applyFieldLabels();
         applyRowHighlights(pageId);

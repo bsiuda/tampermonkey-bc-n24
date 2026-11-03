@@ -20,6 +20,7 @@ Skrypt pomaga w codziennej pracy w Business Central:
 - zaznacza wiersze z brakami w wymaganych polach `W_*`,
 - na stronie `1001` pokazuje ikonke z lista brakujacych wymiarow,
 - na stronie `201` pokazuje czerwone `!!!`, gdy `Quantity` jest wieksze niz `6`,
+- na stronie `201` automatycznie klika `Nie` w komunikacie o zapisach dluzszych niz `8h`,
 - pogrubia wiersze typu `Suma` / `Total`.
 
 ## Szybka instalacja
