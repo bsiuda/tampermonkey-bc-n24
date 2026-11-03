@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.8
+// @version      1.4.9
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -81,12 +81,17 @@
     { key: "W_DZIAL", aliases: ["W_DZIAŁ", "W_DZIAL"] }
   ];
 
-  const COLORING_PAGE_IDS = new Set(["201", "88", "1001", "1007", "50100"]);
+  const COLORING_PAGE_IDS = new Set(["88", "1001", "50100"]);
   const DIMENSION_INDICATOR_PAGE_IDS = new Set(["88", "1001"]);
-  const QUANTITY_WARNING_PAGE_IDS = new Set(["201", "1007"]);
   const QUANTITY_WARNING_THRESHOLD = 6;
   const ROW_INDICATOR_ATTRIBUTE = "data-n24-row-indicator";
   const LONG_JOURNAL_CONFIRMATION_TEXT = "W dzienniku są zapisy dłuższe niż 8h";
+  const PROJECT_JOURNAL_HEADER_SIGNATURE = [
+    "Nr zadania projektu",
+    "DevOps ID",
+    "Zużycie budżetu",
+    "Ilość"
+  ].map(normalizeText);
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
@@ -221,11 +226,24 @@
     return pageEntry?.[1] || "";
   }
 
-  function isColoringPage(pageId) {
-    return COLORING_PAGE_IDS.has(pageId);
+  function isProjectJournalPage() {
+    const pageTitle = normalizeText(document.body?.innerText || "");
+    if (!pageTitle.includes(normalizeText("Dzienniki projektów"))) return false;
+
+    const headers = [...document.querySelectorAll('[id^="column_header_"]')]
+      .map(header => normalizeText(header.textContent || ""));
+    const hasJournalHeaders = PROJECT_JOURNAL_HEADER_SIGNATURE.every(signature => (
+      headers.some(header => header.includes(signature))
+    ));
+
+    return hasJournalHeaders && Boolean(document.querySelector('[controlname="Quantity"]'));
   }
 
-  function applyJournalLongEntriesConfirmation(pageId) {
+  function isColoringPage(pageId, isProjectJournal) {
+    return COLORING_PAGE_IDS.has(pageId) || isProjectJournal;
+  }
+
+  function applyJournalLongEntriesConfirmation(isProjectJournal) {
     const expectedText = normalizeText(LONG_JOURNAL_CONFIRMATION_TEXT);
     const dialog = [...document.querySelectorAll(".message-dialog")]
       .find(element => normalizeText(element.textContent).includes(expectedText));
@@ -235,7 +253,7 @@
       return;
     }
 
-    if (!QUANTITY_WARNING_PAGE_IDS.has(pageId) || journalLongEntriesConfirmationPending) return;
+    if (!isProjectJournal || journalLongEntriesConfirmationPending) return;
 
     const confirmButton = [...dialog.querySelectorAll("button")].find(button => (
       normalizeText(button.textContent) === "nie"
@@ -367,7 +385,7 @@
     firstCell.prepend(element);
   }
 
-  function applyRowHighlights(pageId) {
+  function applyRowHighlights(pageId, isProjectJournal) {
     const allClasses = ROW_RULES.map(r => r.className);
     allClasses.push("n24-row--missing-required");
     const requiredHeaderNorms = REQUIRED_HEADERS.map(h => ({
@@ -434,7 +452,7 @@
           title
         };
       } else if (
-        QUANTITY_WARNING_PAGE_IDS.has(pageId)
+        isProjectJournal
         && getRowQuantity(row) > QUANTITY_WARNING_THRESHOLD
       ) {
         indicator = {
@@ -604,13 +622,14 @@
 
     if (isBC) {
       const pageId = getBusinessCentralPageId();
-      const coloringEnabled = isColoringPage(pageId);
+      const isProjectJournal = isProjectJournalPage();
+      const coloringEnabled = isColoringPage(pageId, isProjectJournal);
       ensureStyles(coloringEnabled);
       applySensitiveTextMask();
-      applyJournalLongEntriesConfirmation(pageId);
+      applyJournalLongEntriesConfirmation(isProjectJournal);
       if (coloringEnabled) {
         applyFieldLabels();
-        applyRowHighlights(pageId);
+        applyRowHighlights(pageId, isProjectJournal);
       }
     }
 

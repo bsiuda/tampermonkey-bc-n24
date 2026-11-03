@@ -15,12 +15,12 @@ Userscript do Business Central rozwijany pod Tampermonkey.
 
 Skrypt pomaga w codziennej pracy w Business Central:
 - podmienia wybrane etykiety pol,
-- koloruje wskazane pola i wiersze tylko na stronach o ID `88`, `201`, `1001`, `1007` i `50100`,
+- koloruje wskazane pola i wiersze na stronach `88`, `1001` i `50100` oraz w rozpoznanym po naglowkach widoku Dziennika projektow,
 - oznacza wiersze wedlug typu budzetu,
 - zaznacza wiersze z brakami w wymaganych polach `W_*`,
 - na stronach `88` i `1001` pokazuje ikonke z lista brakujacych wymiarow,
-- na stronach `201` i `1007` pokazuje czerwone `!!!`, gdy `Quantity` jest wieksze niz `6`,
-- na stronach `201` i `1007` automatycznie klika `Nie` w komunikacie o zapisach dluzszych niz `8h`,
+- w Dzienniku projektow pokazuje czerwone `!!!`, gdy `Quantity` jest wieksze niz `6`,
+- w Dzienniku projektow automatycznie klika `Nie` w komunikacie o zapisach dluzszych niz `8h`,
 - pogrubia wiersze typu `Suma` / `Total`.
 
 ## Szybka instalacja
