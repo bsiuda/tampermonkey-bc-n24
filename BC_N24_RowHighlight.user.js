@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.9
+// @version      1.4.10
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -103,8 +103,10 @@
     "/approvals",
     "/wnioski"
   ];
+  const JOURNAL_NO_CLICK_DELAY_MS = 2000;
 
   let autoApprovePendingClickTimer = null;
+  let journalLongEntriesConfirmationTimer = null;
   let journalLongEntriesConfirmationPending = false;
 
   function normalizeText(value) {
@@ -243,27 +245,54 @@
     return COLORING_PAGE_IDS.has(pageId) || isProjectJournal;
   }
 
-  function applyJournalLongEntriesConfirmation(isProjectJournal) {
+  function findProjectJournalDialog() {
     const expectedText = normalizeText(LONG_JOURNAL_CONFIRMATION_TEXT);
-    const dialog = [...document.querySelectorAll(".message-dialog")]
+    return [...document.querySelectorAll(".message-dialog")]
       .find(element => normalizeText(element.textContent).includes(expectedText));
+  }
 
-    if (!dialog) {
-      journalLongEntriesConfirmationPending = false;
-      return;
-    }
-
-    if (!isProjectJournal || journalLongEntriesConfirmationPending) return;
-
-    const confirmButton = [...dialog.querySelectorAll("button")].find(button => (
+  function findJournalNoButton(dialog) {
+    return [...dialog.querySelectorAll("button")].find(button => (
       normalizeText(button.textContent) === "nie"
       && !button.disabled
       && button.getAttribute("aria-disabled") !== "true"
     ));
-    if (!confirmButton) return;
+  }
+
+  function cancelJournalConfirmation() {
+    if (journalLongEntriesConfirmationTimer !== null) {
+      clearTimeout(journalLongEntriesConfirmationTimer);
+      journalLongEntriesConfirmationTimer = null;
+    }
+    journalLongEntriesConfirmationPending = false;
+  }
+
+  function applyJournalLongEntriesConfirmation(isProjectJournal) {
+    const dialog = findProjectJournalDialog();
+    if (!dialog || !isProjectJournal) {
+      cancelJournalConfirmation();
+      return;
+    }
+    if (journalLongEntriesConfirmationPending || !findJournalNoButton(dialog)) return;
 
     journalLongEntriesConfirmationPending = true;
-    confirmButton.click();
+    journalLongEntriesConfirmationTimer = setTimeout(() => {
+      journalLongEntriesConfirmationTimer = null;
+
+      const currentDialog = findProjectJournalDialog();
+      if (!dialog.isConnected || currentDialog !== dialog || !isProjectJournalPage()) {
+        journalLongEntriesConfirmationPending = false;
+        return;
+      }
+
+      const confirmButton = findJournalNoButton(currentDialog);
+      if (!confirmButton) {
+        journalLongEntriesConfirmationPending = false;
+        return;
+      }
+
+      confirmButton.click();
+    }, JOURNAL_NO_CLICK_DELAY_MS);
   }
 
   function applyFieldLabels() {
