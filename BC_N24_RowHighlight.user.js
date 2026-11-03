@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.16
+// @version      1.4.17
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -94,8 +94,6 @@
   ].map(normalizeText);
   const PROJECT_CARD_TITLE = normalizeText("Kartoteka projektu");
   const PROJECT_TASK_HEADER_SIGNATURE = normalizeText("Nr zadania projektu");
-  const PROJECT_CARD_TASK_GRID_HEIGHT_MULTIPLIER = 2;
-  const PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE = "data-n24-original-height";
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
@@ -287,38 +285,6 @@
 
   function isColoringPage(pageId, isProjectJournal, isProjectCard) {
     return COLORING_PAGE_IDS.has(pageId) || isProjectJournal || isProjectCard;
-  }
-
-  function applyProjectCardTaskGridHeight(isProjectCard) {
-    if (!isProjectCard) return;
-
-    const subform = document.querySelector('[controlname="Job Task Lines Subform"]');
-    const grid = subform?.querySelector(".ms-nav-grid-vertical-container");
-    if (!grid) return;
-
-    const storedHeight = Number(
-      subform.getAttribute(PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE)
-      || grid.getAttribute(PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE)
-    );
-    const originalHeight = Number.isFinite(storedHeight) && storedHeight > 0
-      ? storedHeight
-      : grid.getBoundingClientRect().height;
-    if (!Number.isFinite(originalHeight) || originalHeight <= 0) return;
-
-    if (!(Number.isFinite(storedHeight) && storedHeight > 0)) {
-      subform.setAttribute(PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE, String(originalHeight));
-      grid.setAttribute(PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE, String(originalHeight));
-    }
-
-    const targetHeight = `${originalHeight * PROJECT_CARD_TASK_GRID_HEIGHT_MULTIPLIER}px`;
-    const sizeTargets = [grid.parentElement, grid].filter(Boolean);
-    sizeTargets.forEach(element => {
-      ["height", "min-height", "max-height"].forEach(property => {
-        if (element.style.getPropertyValue(property) !== targetHeight) {
-          element.style.setProperty(property, targetHeight, "important");
-        }
-      });
-    });
   }
 
   function findProjectJournalDialog() {
@@ -748,7 +714,6 @@
       ensureStyles(coloringEnabled);
       applySensitiveTextMask();
       applyJournalLongEntriesConfirmation(isProjectJournal);
-      applyProjectCardTaskGridHeight(isProjectCard);
       if (coloringEnabled) {
         applyFieldLabels();
         applyRowHighlights(pageId, isProjectJournal, isProjectCard);
