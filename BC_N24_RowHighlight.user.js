@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.5
+// @version      1.4.6
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -86,7 +86,7 @@
   const QUANTITY_WARNING_PAGE_ID = "201";
   const QUANTITY_WARNING_THRESHOLD = 6;
   const ROW_INDICATOR_ATTRIBUTE = "data-n24-row-indicator";
-  const LONG_JOURNAL_CONFIRMATION_TEXT = "W dzienniku są zapisy dłuższe niż 8H";
+  const LONG_JOURNAL_CONFIRMATION_TEXT = "W dzienniku są zapisy dłuższe niż 8h";
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
