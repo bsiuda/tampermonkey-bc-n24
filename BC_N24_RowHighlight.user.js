@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.14
+// @version      1.4.16
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -292,25 +292,33 @@
   function applyProjectCardTaskGridHeight(isProjectCard) {
     if (!isProjectCard) return;
 
-    const grid = document.querySelector(
-      '[controlname="Job Task Lines Subform"] .ms-nav-grid-vertical-container'
-    );
+    const subform = document.querySelector('[controlname="Job Task Lines Subform"]');
+    const grid = subform?.querySelector(".ms-nav-grid-vertical-container");
     if (!grid) return;
 
-    const storedHeight = Number(grid.getAttribute(PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE));
+    const storedHeight = Number(
+      subform.getAttribute(PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE)
+      || grid.getAttribute(PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE)
+    );
     const originalHeight = Number.isFinite(storedHeight) && storedHeight > 0
       ? storedHeight
       : grid.getBoundingClientRect().height;
     if (!Number.isFinite(originalHeight) || originalHeight <= 0) return;
 
     if (!(Number.isFinite(storedHeight) && storedHeight > 0)) {
+      subform.setAttribute(PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE, String(originalHeight));
       grid.setAttribute(PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE, String(originalHeight));
     }
 
     const targetHeight = `${originalHeight * PROJECT_CARD_TASK_GRID_HEIGHT_MULTIPLIER}px`;
-    if (grid.style.height !== targetHeight) {
-      grid.style.setProperty("height", targetHeight, "important");
-    }
+    const sizeTargets = [grid.parentElement, grid].filter(Boolean);
+    sizeTargets.forEach(element => {
+      ["height", "min-height", "max-height"].forEach(property => {
+        if (element.style.getPropertyValue(property) !== targetHeight) {
+          element.style.setProperty(property, targetHeight, "important");
+        }
+      });
+    });
   }
 
   function findProjectJournalDialog() {
@@ -494,7 +502,10 @@
       aliases: h.aliases.map(normalizeText)
     }));
 
-    const headers = [...document.querySelectorAll('[id^="column_header_"]')];
+    const dimensionScope = isProjectCard
+      ? document.querySelector('[controlname="Job Task Lines Subform"]')
+      : document;
+    const headers = [...(dimensionScope?.querySelectorAll('[id^="column_header_"]') || [])];
     const headerIdByKey = new Map();
     headers.forEach(h => {
       const headerNorm = normalizeText(h.textContent || "");
@@ -536,7 +547,8 @@
       });
 
       const isSummaryRow = row.classList.contains("n24-row--summary");
-      const missingDimensions = !isSummaryRow && headerIdByKey.size > 0
+      const isInDimensionScope = !isProjectCard || dimensionScope?.contains(row);
+      const missingDimensions = isInDimensionScope && !isSummaryRow && headerIdByKey.size > 0
         ? getMissingRequiredDimensions(row, headerIdByKey)
         : [];
       if (missingDimensions.length) {
