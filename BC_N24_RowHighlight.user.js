@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.17
+// @version      1.4.18
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -384,15 +384,23 @@
       const headerId = headerIdByKey.get(required.key);
       if (!headerId) return false;
 
-      const cell = row.querySelector(`[aria-labelledby~="${headerId}"]`);
-      if (!cell) return true;
+      const cell = row.querySelector(`[aria-labelledby~="${headerId}"]`)
+        || row.querySelector(`[controlname="${required.key}"]`);
+      if (!cell) return false;
 
       const valueText = (cell.textContent || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
       const valueTitle = (cell.getAttribute("title") || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
       const valueAria = (cell.getAttribute("aria-label") || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+      const valueControl = cell.matches?.("input, textarea, select, [role='combobox'], [role='textbox']")
+        ? cell
+        : cell.querySelector?.("input, textarea, select, [role='combobox'], [role='textbox']");
+      const controlValue = String(
+        valueControl?.value ?? valueControl?.getAttribute("value") ?? ""
+      ).replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
       const ariaSaysEmpty = valueAria.includes("(puste)") || valueAria === "puste";
 
-      return ariaSaysEmpty || (!valueText && !valueTitle);
+      return !controlValue && !valueText && !valueTitle
+        && (ariaSaysEmpty || !valueAria);
     }).map(required => required.key);
   }
 
