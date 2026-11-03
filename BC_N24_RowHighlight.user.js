@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.12
+// @version      1.4.13
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -92,6 +92,8 @@
     "Zużycie budżetu",
     "Ilość"
   ].map(normalizeText);
+  const PROJECT_CARD_TITLE = normalizeText("Kartoteka projektu");
+  const PROJECT_TASK_HEADER_SIGNATURE = normalizeText("Nr zadania projektu");
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
@@ -147,6 +149,12 @@
       color: #fff !important;
       font-weight: 700 !important;
     }
+    tr.n24-row--missing-dimensions-emphasis td,
+    tr.n24-row--missing-dimensions-emphasis td * {
+      background-color: #c62828 !important;
+      color: #fff !important;
+      font-weight: 700 !important;
+    }
     [${ROW_INDICATOR_ATTRIBUTE}] {
       display: inline-block;
       margin-right: 6px;
@@ -159,6 +167,18 @@
     }
     tr.n24-row--quantity-warning [${ROW_INDICATOR_ATTRIBUTE}].n24-row-indicator--quantity {
       color: #b71c1c !important;
+      background-color: #fff !important;
+      border-radius: 50%;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      font-size: 1em;
+      font-weight: 900;
+      height: 1.35em;
+      line-height: 1.35em;
+      min-width: 1.35em;
+      text-align: center;
+    }
+    tr.n24-row--missing-dimensions-emphasis [${ROW_INDICATOR_ATTRIBUTE}].n24-row-indicator--dimensions {
+      color: #b26a00 !important;
       background-color: #fff !important;
       border-radius: 50%;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -255,8 +275,16 @@
     return hasJournalHeaders && Boolean(document.querySelector('[controlname="Quantity"]'));
   }
 
-  function isColoringPage(pageId, isProjectJournal) {
-    return COLORING_PAGE_IDS.has(pageId) || isProjectJournal;
+  function isProjectCardPage() {
+    const pageText = normalizeText(document.body?.innerText || "");
+    if (!pageText.includes(PROJECT_CARD_TITLE)) return false;
+
+    return [...document.querySelectorAll('[id^="column_header_"]')]
+      .some(header => normalizeText(header.textContent || "").includes(PROJECT_TASK_HEADER_SIGNATURE));
+  }
+
+  function isColoringPage(pageId, isProjectJournal, isProjectCard) {
+    return COLORING_PAGE_IDS.has(pageId) || isProjectJournal || isProjectCard;
   }
 
   function findProjectJournalDialog() {
@@ -428,9 +456,13 @@
     firstCell.prepend(element);
   }
 
-  function applyRowHighlights(pageId, isProjectJournal) {
+  function applyRowHighlights(pageId, isProjectJournal, isProjectCard) {
     const allClasses = ROW_RULES.map(r => r.className);
-    allClasses.push("n24-row--missing-required", "n24-row--quantity-warning");
+    allClasses.push(
+      "n24-row--missing-required",
+      "n24-row--missing-dimensions-emphasis",
+      "n24-row--quantity-warning"
+    );
     const requiredHeaderNorms = REQUIRED_HEADERS.map(h => ({
       key: h.key,
       aliases: h.aliases.map(normalizeText)
@@ -483,6 +515,9 @@
         : [];
       if (missingDimensions.length) {
         row.classList.add("n24-row--missing-required");
+        if (isProjectCard) {
+          row.classList.add("n24-row--missing-dimensions-emphasis");
+        }
       }
 
       const firstCell = row.querySelector('[role="rowheader"]')
@@ -494,7 +529,7 @@
       }
 
       let indicator = null;
-      if (DIMENSION_INDICATOR_PAGE_IDS.has(pageId) && missingDimensions.length) {
+      if ((DIMENSION_INDICATOR_PAGE_IDS.has(pageId) || isProjectCard) && missingDimensions.length) {
         const title = `Brak wymiarów: ${missingDimensions.join(", ")}`;
         indicator = {
           className: "n24-row-indicator--dimensions",
@@ -670,13 +705,14 @@
     if (isBC) {
       const pageId = getBusinessCentralPageId();
       const isProjectJournal = isProjectJournalPage();
-      const coloringEnabled = isColoringPage(pageId, isProjectJournal);
+      const isProjectCard = isProjectCardPage();
+      const coloringEnabled = isColoringPage(pageId, isProjectJournal, isProjectCard);
       ensureStyles(coloringEnabled);
       applySensitiveTextMask();
       applyJournalLongEntriesConfirmation(isProjectJournal);
       if (coloringEnabled) {
         applyFieldLabels();
-        applyRowHighlights(pageId, isProjectJournal);
+        applyRowHighlights(pageId, isProjectJournal, isProjectCard);
       }
     }
 
