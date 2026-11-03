@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.11
+// @version      1.4.12
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -141,6 +141,12 @@
     tr.n24-row--missing-required td {
       background-color: #ffcdd2 !important;
     }
+    tr.n24-row--quantity-warning td,
+    tr.n24-row--quantity-warning td * {
+      background-color: #c62828 !important;
+      color: #fff !important;
+      font-weight: 700 !important;
+    }
     [${ROW_INDICATOR_ATTRIBUTE}] {
       display: inline-block;
       margin-right: 6px;
@@ -151,9 +157,17 @@
     .n24-row-indicator--dimensions {
       color: #b26a00 !important;
     }
-    .n24-row-indicator--quantity {
-      color: #c62828 !important;
-      font-size: 1.15em;
+    tr.n24-row--quantity-warning [${ROW_INDICATOR_ATTRIBUTE}].n24-row-indicator--quantity {
+      color: #b71c1c !important;
+      background-color: #fff !important;
+      border-radius: 50%;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      font-size: 1em;
+      font-weight: 900;
+      height: 1.35em;
+      line-height: 1.35em;
+      min-width: 1.35em;
+      text-align: center;
     }
   `;
 
@@ -416,7 +430,7 @@
 
   function applyRowHighlights(pageId, isProjectJournal) {
     const allClasses = ROW_RULES.map(r => r.className);
-    allClasses.push("n24-row--missing-required");
+    allClasses.push("n24-row--missing-required", "n24-row--quantity-warning");
     const requiredHeaderNorms = REQUIRED_HEADERS.map(h => ({
       key: h.key,
       aliases: h.aliases.map(normalizeText)
@@ -473,6 +487,12 @@
 
       const firstCell = row.querySelector('[role="rowheader"]')
         || row.querySelector('[role="gridcell"]');
+      const quantity = isProjectJournal ? getRowQuantity(row) : null;
+      const hasQuantityWarning = quantity !== null && quantity > QUANTITY_WARNING_THRESHOLD;
+      if (hasQuantityWarning) {
+        row.classList.add("n24-row--quantity-warning");
+      }
+
       let indicator = null;
       if (DIMENSION_INDICATOR_PAGE_IDS.has(pageId) && missingDimensions.length) {
         const title = `Brak wymiarów: ${missingDimensions.join(", ")}`;
@@ -481,13 +501,10 @@
           text: "⚠",
           title
         };
-      } else if (
-        isProjectJournal
-        && getRowQuantity(row) > QUANTITY_WARNING_THRESHOLD
-      ) {
+      } else if (hasQuantityWarning) {
         indicator = {
           className: "n24-row-indicator--quantity",
-          text: "!!!",
+          text: "!",
           title: `Quantity > ${QUANTITY_WARNING_THRESHOLD}`
         };
       }
