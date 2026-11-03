@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.10
+// @version      1.4.11
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -471,7 +471,8 @@
         row.classList.add("n24-row--missing-required");
       }
 
-      const firstCell = row.querySelector('[role="gridcell"]');
+      const firstCell = row.querySelector('[role="rowheader"]')
+        || row.querySelector('[role="gridcell"]');
       let indicator = null;
       if (DIMENSION_INDICATOR_PAGE_IDS.has(pageId) && missingDimensions.length) {
         const title = `Brak wymiarów: ${missingDimensions.join(", ")}`;
