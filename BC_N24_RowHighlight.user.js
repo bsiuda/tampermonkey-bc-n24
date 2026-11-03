@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.2
+// @version      1.4.3
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -81,6 +81,12 @@
     { key: "W_DZIAL", aliases: ["W_DZIAŁ", "W_DZIAL"] }
   ];
 
+  const COLORING_PAGE_IDS = new Set(["201", "1001", "50100"]);
+  const DIMENSION_INDICATOR_PAGE_ID = "1001";
+  const QUANTITY_WARNING_PAGE_ID = "201";
+  const QUANTITY_WARNING_THRESHOLD = 6;
+  const ROW_INDICATOR_ATTRIBUTE = "data-n24-row-indicator";
+
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
 
@@ -125,6 +131,20 @@
     /* Brak wymaganych pĂłl W_* â€” czerwony caĹ‚y wiersz (priorytet) */
     tr.n24-row--missing-required td {
       background-color: #ffcdd2 !important;
+    }
+    [${ROW_INDICATOR_ATTRIBUTE}] {
+      display: inline-block;
+      margin-right: 6px;
+      font-weight: 800;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .n24-row-indicator--dimensions {
+      color: #b26a00 !important;
+    }
+    .n24-row-indicator--quantity {
+      color: #c62828 !important;
+      font-size: 1.15em;
     }
   `;
 
@@ -179,12 +199,28 @@
     }).join("\n");
   }
 
-  function ensureStyles() {
-    if (document.getElementById("n24-style")) return;
+  function ensureStyles(enabled) {
+    const existingStyle = document.getElementById("n24-style");
+    if (!enabled) {
+      existingStyle?.remove();
+      document.querySelectorAll(`[${ROW_INDICATOR_ATTRIBUTE}]`).forEach(indicator => indicator.remove());
+      return;
+    }
+    if (existingStyle) return;
     const style = document.createElement("style");
     style.id = "n24-style";
     style.textContent = buildFieldCSS() + ROW_RULES_CSS;
     document.head.appendChild(style);
+  }
+
+  function getBusinessCentralPageId() {
+    const pageEntry = [...new URLSearchParams(location.search).entries()]
+      .find(([key]) => key.toLowerCase() === "page");
+    return pageEntry?.[1] || "";
+  }
+
+  function isColoringPage(pageId) {
+    return COLORING_PAGE_IDS.has(pageId);
   }
 
   function applyFieldLabels() {
@@ -229,7 +265,84 @@
     });
   }
 
-  function applyRowHighlights() {
+  function getMissingRequiredDimensions(row, headerIdByKey) {
+    return REQUIRED_HEADERS.filter(required => {
+      const headerId = headerIdByKey.get(required.key);
+      if (!headerId) return false;
+
+      const cell = row.querySelector(`[aria-labelledby~="${headerId}"]`);
+      if (!cell) return true;
+
+      const valueText = (cell.textContent || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+      const valueTitle = (cell.getAttribute("title") || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+      const valueAria = (cell.getAttribute("aria-label") || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+      const ariaSaysEmpty = valueAria.includes("(puste)") || valueAria === "puste";
+
+      return ariaSaysEmpty || (!valueText && !valueTitle);
+    }).map(required => required.key);
+  }
+
+  function parseQuantity(value) {
+    let normalized = (value || "").replace(/\u00a0/g, " ").replace(/\s/g, "");
+    if (!normalized) return null;
+
+    const lastComma = normalized.lastIndexOf(",");
+    const lastDot = normalized.lastIndexOf(".");
+    if (lastComma !== -1 && lastDot !== -1) {
+      normalized = lastComma > lastDot
+        ? normalized.replace(/\./g, "").replace(",", ".")
+        : normalized.replace(/,/g, "");
+    } else if (lastComma !== -1) {
+      normalized = normalized.replace(",", ".");
+    }
+
+    if (!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(normalized)) return null;
+    const quantity = Number(normalized);
+    return Number.isFinite(quantity) ? quantity : null;
+  }
+
+  function getRowQuantity(row) {
+    const cell = row.querySelector('[controlname="Quantity"]');
+    if (!cell) return null;
+
+    const input = cell.querySelector("input");
+    const value = input?.value
+      || cell.getAttribute("title")
+      || cell.textContent
+      || "";
+    return parseQuantity(value);
+  }
+
+  function updateRowIndicator(row, firstCell, indicator) {
+    const existingIndicators = [...row.querySelectorAll(`[${ROW_INDICATOR_ATTRIBUTE}]`)];
+    if (!indicator || !firstCell) {
+      existingIndicators.forEach(existing => existing.remove());
+      return;
+    }
+
+    const [existing] = existingIndicators;
+    if (
+      existingIndicators.length === 1
+      && existing.parentElement === firstCell
+      && existing.textContent === indicator.text
+      && existing.title === indicator.title
+      && existing.className === indicator.className
+    ) {
+      return;
+    }
+
+    existingIndicators.forEach(existingIndicator => existingIndicator.remove());
+    const element = document.createElement("span");
+    element.setAttribute(ROW_INDICATOR_ATTRIBUTE, "1");
+    element.className = indicator.className;
+    element.textContent = indicator.text;
+    element.title = indicator.title;
+    element.setAttribute("role", "img");
+    element.setAttribute("aria-label", indicator.title);
+    firstCell.prepend(element);
+  }
+
+  function applyRowHighlights(pageId) {
     const allClasses = ROW_RULES.map(r => r.className);
     allClasses.push("n24-row--missing-required");
     const requiredHeaderNorms = REQUIRED_HEADERS.map(h => ({
@@ -249,9 +362,6 @@
       });
     });
 
-    // Jesli zadna kolumna W_* nie jest widoczna na tej stronie, pomijamy walidacje
-    const pageHasRequiredColumns = headerIdByKey.size > 0;
-
     document.querySelectorAll('tr[role="row"][rowkey]').forEach(row => {
       const rawValues =
         [...row.querySelectorAll('[role="textbox"], [role="button"], [role="gridcell"] span')]
@@ -263,7 +373,6 @@
         .filter(Boolean);
       const normalizedValuesLower = normalizedValues.map(v => v.toLowerCase());
 
-      // WyczyĹ›Ä‡ poprzednie klasy n24, dodaj pasujÄ…ce
       row.classList.remove(...allClasses);
 
       ROW_RULES.forEach(rule => {
@@ -283,27 +392,33 @@
       });
 
       const isSummaryRow = row.classList.contains("n24-row--summary");
-
-      const hasMissingRequired = !isSummaryRow && pageHasRequiredColumns && REQUIRED_HEADERS.some(required => {
-        const headerId = headerIdByKey.get(required.key);
-        if (!headerId) return false;
-
-        // Czytamy komĂłrkÄ™ po tokenie aria-labelledby=column_header_xxx
-        const cell = row.querySelector(`[aria-labelledby~="${headerId}"]`);
-        if (!cell) return true;
-
-        const valueText = (cell.textContent || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
-        const valueTitle = (cell.getAttribute("title") || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
-        const valueAria = (cell.getAttribute("aria-label") || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
-
-        const ariaSaysEmpty = valueAria.includes("(puste)") || valueAria === "puste";
-
-        return ariaSaysEmpty || (!valueText && !valueTitle);
-      });
-
-      if (hasMissingRequired) {
+      const missingDimensions = !isSummaryRow && headerIdByKey.size > 0
+        ? getMissingRequiredDimensions(row, headerIdByKey)
+        : [];
+      if (missingDimensions.length) {
         row.classList.add("n24-row--missing-required");
       }
+
+      const firstCell = row.querySelector('[role="gridcell"]');
+      let indicator = null;
+      if (pageId === DIMENSION_INDICATOR_PAGE_ID && missingDimensions.length) {
+        const title = `Brak wymiarów: ${missingDimensions.join(", ")}`;
+        indicator = {
+          className: "n24-row-indicator--dimensions",
+          text: "⚠",
+          title
+        };
+      } else if (
+        pageId === QUANTITY_WARNING_PAGE_ID
+        && getRowQuantity(row) > QUANTITY_WARNING_THRESHOLD
+      ) {
+        indicator = {
+          className: "n24-row-indicator--quantity",
+          text: "!!!",
+          title: `Quantity > ${QUANTITY_WARNING_THRESHOLD}`
+        };
+      }
+      updateRowIndicator(row, firstCell, indicator);
     });
   }
 
@@ -463,10 +578,14 @@
     const isHRnest = host === "app.hrnest.io";
 
     if (isBC) {
-      ensureStyles();
+      const pageId = getBusinessCentralPageId();
+      const coloringEnabled = isColoringPage(pageId);
+      ensureStyles(coloringEnabled);
       applySensitiveTextMask();
-      applyFieldLabels();
-      applyRowHighlights();
+      if (coloringEnabled) {
+        applyFieldLabels();
+        applyRowHighlights(pageId);
+      }
     }
 
     if (isHRnest) {
@@ -482,4 +601,3 @@
   const observer = new MutationObserver(run);
   observer.observe(document.documentElement, { childList: true, subtree: true });
 })();
-

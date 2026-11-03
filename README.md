@@ -15,9 +15,11 @@ Userscript do Business Central rozwijany pod Tampermonkey.
 
 Skrypt pomaga w codziennej pracy w Business Central:
 - podmienia wybrane etykiety pol,
-- koloruje wskazane pola w naglowku,
+- koloruje wskazane pola i wiersze tylko na stronach o ID `201`, `1001` i `50100`,
 - oznacza wiersze wedlug typu budzetu,
 - zaznacza wiersze z brakami w wymaganych polach `W_*`,
+- na stronie `1001` pokazuje ikonke z lista brakujacych wymiarow,
+- na stronie `201` pokazuje czerwone `!!!`, gdy `Quantity` jest wieksze niz `6`,
 - pogrubia wiersze typu `Suma` / `Total`.
 
 ## Szybka instalacja
