@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.13
+// @version      1.4.14
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -94,6 +94,8 @@
   ].map(normalizeText);
   const PROJECT_CARD_TITLE = normalizeText("Kartoteka projektu");
   const PROJECT_TASK_HEADER_SIGNATURE = normalizeText("Nr zadania projektu");
+  const PROJECT_CARD_TASK_GRID_HEIGHT_MULTIPLIER = 2;
+  const PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE = "data-n24-original-height";
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
@@ -285,6 +287,30 @@
 
   function isColoringPage(pageId, isProjectJournal, isProjectCard) {
     return COLORING_PAGE_IDS.has(pageId) || isProjectJournal || isProjectCard;
+  }
+
+  function applyProjectCardTaskGridHeight(isProjectCard) {
+    if (!isProjectCard) return;
+
+    const grid = document.querySelector(
+      '[controlname="Job Task Lines Subform"] .ms-nav-grid-vertical-container'
+    );
+    if (!grid) return;
+
+    const storedHeight = Number(grid.getAttribute(PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE));
+    const originalHeight = Number.isFinite(storedHeight) && storedHeight > 0
+      ? storedHeight
+      : grid.getBoundingClientRect().height;
+    if (!Number.isFinite(originalHeight) || originalHeight <= 0) return;
+
+    if (!(Number.isFinite(storedHeight) && storedHeight > 0)) {
+      grid.setAttribute(PROJECT_CARD_TASK_GRID_ORIGINAL_HEIGHT_ATTRIBUTE, String(originalHeight));
+    }
+
+    const targetHeight = `${originalHeight * PROJECT_CARD_TASK_GRID_HEIGHT_MULTIPLIER}px`;
+    if (grid.style.height !== targetHeight) {
+      grid.style.setProperty("height", targetHeight, "important");
+    }
   }
 
   function findProjectJournalDialog() {
@@ -710,6 +736,7 @@
       ensureStyles(coloringEnabled);
       applySensitiveTextMask();
       applyJournalLongEntriesConfirmation(isProjectJournal);
+      applyProjectCardTaskGridHeight(isProjectCard);
       if (coloringEnabled) {
         applyFieldLabels();
         applyRowHighlights(pageId, isProjectJournal, isProjectCard);
