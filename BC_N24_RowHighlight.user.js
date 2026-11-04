@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.24
+// @version      1.4.25
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -603,6 +603,18 @@
     projectTaskRootOriginalTop = null;
   }
 
+  function getProjectTaskMaximizedTop(root) {
+    const rootTop = root.getBoundingClientRect().top;
+    const precedingSectionTops = getProjectCardSections()
+      .map(section => section.getBoundingClientRect())
+      .filter(rect => rect.height > 0 && rect.top < rootTop)
+      .map(rect => rect.top);
+    const top = precedingSectionTops.length
+      ? Math.min(rootTop, ...precedingSectionTops)
+      : rootTop;
+    return Math.max(40, top);
+  }
+
   function resizeProjectTaskGrid() {
     if (!projectTaskMaximized) return;
 
@@ -645,7 +657,7 @@
         value: root.style.getPropertyValue("top"),
         priority: root.style.getPropertyPriority("top")
       };
-      const top = Math.max(40, root.getBoundingClientRect().top);
+      const top = getProjectTaskMaximizedTop(root);
       root.style.setProperty("top", `${top}px`, "important");
     }
 
