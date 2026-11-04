@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.20
+// @version      1.4.21
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -509,7 +509,10 @@
     }
     if (!toggle) return;
 
-    toggle.textContent = projectCardSectionsHidden ? "Pokaż sekcje" : "Ukryj sekcje";
+    const toggleLabel = projectCardSectionsHidden ? "Pokaż sekcje" : "Ukryj sekcje";
+    if (toggle.textContent !== toggleLabel) {
+      toggle.textContent = toggleLabel;
+    }
     toggle.setAttribute("aria-pressed", String(projectCardSectionsHidden));
     toggle.title = projectCardSectionsHidden
       ? "Pokaż ukryte sekcje Kartoteki projektu"
