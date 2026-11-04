@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.22
+// @version      1.4.23
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -115,6 +115,8 @@
   ].map(normalizeText);
   const PROJECT_CARD_SECTION_HIDDEN_CLASS = "n24-project-card-section--hidden";
   const PROJECT_CARD_SECTION_TOGGLE_ID = "n24-project-card-section-toggle";
+  const PROJECT_TASK_MAXIMIZED_CLASS = "n24-project-task--maximized";
+  const PROJECT_TASK_MAXIMIZE_BUTTON_ID = "n24-project-task-maximize";
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
@@ -132,6 +134,11 @@
   let journalLongEntriesConfirmationTimer = null;
   let journalLongEntriesConfirmationPending = false;
   let projectCardSectionsHidden = false;
+  let projectTaskMaximized = false;
+  const projectTaskGridOriginalStyles = new Map();
+  let projectTaskGridElement = null;
+  let projectTaskGridContainerElement = null;
+  let projectTaskMaximizeListenersAttached = false;
 
   function normalizeText(value) {
     return (value || "")
@@ -214,10 +221,18 @@
     .${PROJECT_CARD_SECTION_HIDDEN_CLASS} {
       display: none !important;
     }
-    #${PROJECT_CARD_SECTION_TOGGLE_ID} {
+    .${PROJECT_TASK_MAXIMIZED_CLASS} {
+      position: fixed !important;
+      inset: 40px 0 0 !important;
+      z-index: 99999 !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      background: #fff !important;
+    }
+    #${PROJECT_CARD_SECTION_TOGGLE_ID},
+    #${PROJECT_TASK_MAXIMIZE_BUTTON_ID} {
       position: fixed;
       top: 52px;
-      right: 170px;
       z-index: 100000;
       padding: 7px 12px;
       border: 1px solid #0078d4;
@@ -228,7 +243,14 @@
       cursor: pointer;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     }
-    #${PROJECT_CARD_SECTION_TOGGLE_ID}:hover {
+    #${PROJECT_CARD_SECTION_TOGGLE_ID} {
+      right: 170px;
+    }
+    #${PROJECT_TASK_MAXIMIZE_BUTTON_ID} {
+      right: 270px;
+    }
+    #${PROJECT_CARD_SECTION_TOGGLE_ID}:hover,
+    #${PROJECT_TASK_MAXIMIZE_BUTTON_ID}:hover {
       background: #f3f9fd;
     }
   `;
@@ -511,16 +533,165 @@
     if (toggle.textContent !== toggleLabel) {
       toggle.textContent = toggleLabel;
     }
-    toggle.setAttribute("aria-pressed", String(projectCardSectionsHidden));
-    toggle.title = projectCardSectionsHidden
+    const pressed = String(projectCardSectionsHidden);
+    if (toggle.getAttribute("aria-pressed") !== pressed) {
+      toggle.setAttribute("aria-pressed", pressed);
+    }
+    const title = projectCardSectionsHidden
       ? "Pokaż ukryte sekcje Kartoteki projektu"
       : "Ukryj sekcje Kartoteki projektu";
+    if (toggle.title !== title) toggle.title = title;
     getProjectCardSections().forEach(section => {
       section.classList.toggle(
         PROJECT_CARD_SECTION_HIDDEN_CLASS,
         projectCardSectionsHidden
       );
     });
+  }
+
+  function getProjectTaskSectionRoot() {
+    const subform = document.querySelector('[controlname="Job Task Lines Subform"]');
+    return subform?.closest(".formhost-control.ms-nav-collapsible-part")
+      || subform?.closest(".formhost-control")
+      || subform;
+  }
+
+  function rememberProjectTaskGridStyles(element) {
+    if (projectTaskGridOriginalStyles.has(element)) return;
+
+    const properties = ["height", "min-height", "max-height"];
+    projectTaskGridOriginalStyles.set(element, new Map(properties.map(property => [
+      property,
+      {
+        value: element.style.getPropertyValue(property),
+        priority: element.style.getPropertyPriority(property)
+      }
+    ])));
+  }
+
+  function restoreProjectTaskGridStyles() {
+    projectTaskGridOriginalStyles.forEach((properties, element) => {
+      properties.forEach(({ value, priority }, property) => {
+        if (value) {
+          element.style.setProperty(property, value, priority);
+        } else {
+          element.style.removeProperty(property);
+        }
+      });
+    });
+    projectTaskGridOriginalStyles.clear();
+    projectTaskGridElement = null;
+    projectTaskGridContainerElement = null;
+  }
+
+  function resizeProjectTaskGrid() {
+    if (!projectTaskMaximized) return;
+
+    const grid = document.querySelector(
+      '[controlname="Job Task Lines Subform"] .ms-nav-grid-vertical-container'
+    );
+    if (!grid) return;
+
+    const gridContainer = grid.closest(".ms-nav-grid-horizontal-container") || grid;
+    projectTaskGridElement = grid;
+    projectTaskGridContainerElement = gridContainer;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    [gridContainer, grid].forEach(element => {
+      rememberProjectTaskGridStyles(element);
+      const availableHeight = Math.max(
+        180,
+        viewportHeight - element.getBoundingClientRect().top - 12
+      );
+      const targetHeight = `${availableHeight}px`;
+      ["height", "max-height"].forEach(property => {
+        if (element.style.getPropertyValue(property) !== targetHeight
+          || element.style.getPropertyPriority(property) !== "important") {
+          element.style.setProperty(property, targetHeight, "important");
+        }
+      });
+      if (element.style.getPropertyValue("min-height") !== "0px"
+        || element.style.getPropertyPriority("min-height") !== "important") {
+        element.style.setProperty("min-height", "0px", "important");
+      }
+    });
+  }
+
+  function setProjectTaskMaximized(maximized) {
+    const stateChanged = projectTaskMaximized !== maximized;
+    projectTaskMaximized = maximized;
+    const root = getProjectTaskSectionRoot();
+    const classChanged = root
+      && root.classList.contains(PROJECT_TASK_MAXIMIZED_CLASS) !== maximized;
+    if (root) {
+      if (classChanged) {
+        root.classList.toggle(PROJECT_TASK_MAXIMIZED_CLASS, maximized);
+      }
+    }
+
+    if (maximized) {
+      const currentGrid = document.querySelector(
+        '[controlname="Job Task Lines Subform"] .ms-nav-grid-vertical-container'
+      );
+      const currentContainer = currentGrid?.closest(".ms-nav-grid-horizontal-container")
+        || currentGrid;
+      if (
+        stateChanged
+        || classChanged
+        || currentGrid !== projectTaskGridElement
+        || currentContainer !== projectTaskGridContainerElement
+      ) {
+        resizeProjectTaskGrid();
+      }
+    } else if (stateChanged || classChanged || projectTaskGridOriginalStyles.size) {
+      restoreProjectTaskGridStyles();
+    }
+
+    const button = document.getElementById(PROJECT_TASK_MAXIMIZE_BUTTON_ID);
+    if (button) {
+      const label = maximized ? "Przywróć zadania" : "Maksymalizuj zadania";
+      if (button.textContent !== label) button.textContent = label;
+      const pressed = String(maximized);
+      if (button.getAttribute("aria-pressed") !== pressed) {
+        button.setAttribute("aria-pressed", pressed);
+      }
+      const title = maximized
+        ? "Przywróć zwykły widok Kartoteki projektu"
+        : "Rozciągnij listę zadań na obszar roboczy";
+      if (button.title !== title) button.title = title;
+    }
+  }
+
+  function applyProjectTaskMaximizeButton(isProjectCard) {
+    let button = document.getElementById(PROJECT_TASK_MAXIMIZE_BUTTON_ID);
+    if (!isProjectCard) {
+      setProjectTaskMaximized(false);
+      button?.remove();
+      return;
+    }
+
+    if (!button && document.body) {
+      button = document.createElement("button");
+      button.id = PROJECT_TASK_MAXIMIZE_BUTTON_ID;
+      button.type = "button";
+      button.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        setProjectTaskMaximized(!projectTaskMaximized);
+      });
+      document.body.appendChild(button);
+    }
+
+    if (!projectTaskMaximizeListenersAttached) {
+      window.addEventListener("resize", resizeProjectTaskGrid);
+      window.addEventListener("keydown", event => {
+        if (event.key === "Escape" && projectTaskMaximized) {
+          setProjectTaskMaximized(false);
+        }
+      });
+      projectTaskMaximizeListenersAttached = true;
+    }
+
+    setProjectTaskMaximized(projectTaskMaximized);
   }
 
   function parseQuantity(value) {
@@ -853,6 +1024,7 @@
       applySensitiveTextMask();
       applyJournalLongEntriesConfirmation(isProjectJournal);
       applyProjectCardSectionVisibility(isProjectCard);
+      applyProjectTaskMaximizeButton(isProjectCard);
       if (coloringEnabled) {
         applyFieldLabels();
         applyRowHighlights(pageId, isProjectJournal, isProjectCard);

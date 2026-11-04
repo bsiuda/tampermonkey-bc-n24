@@ -22,6 +22,7 @@ Skrypt pomaga w codziennej pracy w Business Central:
 - na stronie `Kartoteka projektu` wiersze z brakujacymi wymiarami sa czerwone, z biala pogrubiona czcionka i ikona,
 - w Kartotece projektu koloruje wiersze tylko dla typu zadania projektu `Posting` lub `Księgowalne`,
 - na Kartotece projektu przycisk `Ukryj sekcje` / `Pokaż sekcje` dynamicznie ukrywa lub pokazuje sekcje dodatkowe, pozostawiajac `Zadania` widoczne,
+- na Kartotece projektu przycisk `Maksymalizuj zadania` / `Przywróć zadania` rozciąga listę zadań na obszar roboczy; widok można też przywrócić klawiszem `Esc`,
 - w oknie `Wiersze planowania projektu` nie stosuje oznaczen dotyczacych brakujacych wymiarow,
 - w Dzienniku projektow pokazuje czerwony wiersz z biala, pogrubiona czcionka i ikona `!`, gdy `Quantity` jest wieksze niz `6`,
 - w Dzienniku projektow po 2 sekundach automatycznie klika `Nie` w komunikacie o zapisach dluzszych niz `8h`,
