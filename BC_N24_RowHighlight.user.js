@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.21
+// @version      1.4.22
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -94,9 +94,9 @@
   ].map(normalizeText);
   const PROJECT_CARD_TITLE = normalizeText("Kartoteka projektu");
   const PROJECT_TASK_HEADER_SIGNATURE = normalizeText("Nr zadania projektu");
-  const PROJECT_TASK_STATUS_HEADER_ALIASES = [
-    "Status zadania zlecenia",
-    "Job Task Status"
+  const PROJECT_TASK_TYPE_HEADER_ALIASES = [
+    "Typ zadania projektu",
+    "Job Task Type"
   ].map(normalizeText);
   const PROJECT_TASK_COLORING_STATUSES = new Set([
     normalizeText("Posting"),
@@ -110,7 +110,8 @@
     "Faktura i wydanie",
     "Czas trwania",
     "RWT i uznanie",
-    "Integracja z systemami zewnętrznymi"
+    "Integracja z systemami zewnętrznymi",
+    "Integracje z systemami zewnętrznymi"
   ].map(normalizeText);
   const PROJECT_CARD_SECTION_HIDDEN_CLASS = "n24-project-card-section--hidden";
   const PROJECT_CARD_SECTION_TOGGLE_ID = "n24-project-card-section-toggle";
@@ -445,20 +446,17 @@
     }).map(required => required.key);
   }
 
-  function isProjectTaskStatusEligible(row, scope) {
-    const statusHeader = [...(scope?.querySelectorAll('[id^="column_header_"]') || [])]
-      .find(header => PROJECT_TASK_STATUS_HEADER_ALIASES.includes(
-        normalizeText(header.textContent || "")
-      ));
-    if (!statusHeader) return false;
+  function isProjectTaskTypeEligible(row, taskTypeHeader) {
+    if (!taskTypeHeader) return false;
 
-    const cell = row.querySelector(`[aria-labelledby~="${statusHeader.id}"]`);
+    const cell = row.querySelector(`[aria-labelledby~="${taskTypeHeader.id}"]`)
+      || row.querySelector('[controlname="Job Task Type"]');
     if (!cell) return false;
 
     const valueControl = cell.matches?.("input, textarea, select, [role='combobox'], [role='textbox']")
       ? cell
       : cell.querySelector?.("input, textarea, select, [role='combobox'], [role='textbox']");
-    const status = normalizeText(
+    const taskType = normalizeText(
       valueControl?.value
       || valueControl?.getAttribute("value")
       || cell.getAttribute("title")
@@ -466,7 +464,7 @@
       || cell.textContent
       || ""
     );
-    return PROJECT_TASK_COLORING_STATUSES.has(status);
+    return PROJECT_TASK_COLORING_STATUSES.has(taskType);
   }
 
   function getProjectCardSections() {
@@ -601,6 +599,11 @@
       ? document.querySelector('[controlname="Job Task Lines Subform"]')
       : document;
     const headers = [...(dimensionScope?.querySelectorAll('[id^="column_header_"]') || [])];
+    const projectTaskTypeHeader = isProjectCard
+      ? headers.find(header => PROJECT_TASK_TYPE_HEADER_ALIASES.includes(
+        normalizeText(header.textContent || "")
+      ))
+      : null;
     const headerIdByKey = new Map();
     headers.forEach(h => {
       const headerNorm = normalizeText(h.textContent || "");
@@ -624,7 +627,7 @@
       const normalizedValuesLower = normalizedValues.map(v => v.toLowerCase());
 
       row.classList.remove(...allClasses);
-      if (isProjectCard && !isProjectTaskStatusEligible(row, dimensionScope)) {
+      if (isProjectCard && !isProjectTaskTypeEligible(row, projectTaskTypeHeader)) {
         const firstCell = row.querySelector('[role="rowheader"]')
           || row.querySelector('[role="gridcell"]');
         updateRowIndicator(row, firstCell, null);

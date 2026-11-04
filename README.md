@@ -20,7 +20,7 @@ Skrypt pomaga w codziennej pracy w Business Central:
 - zaznacza wiersze z brakami w wymaganych polach `W_*`,
 - na stronach `88` i `1001` pokazuje ikonke z lista brakujacych wymiarow,
 - na stronie `Kartoteka projektu` wiersze z brakujacymi wymiarami sa czerwone, z biala pogrubiona czcionka i ikona,
-- w Kartotece projektu koloruje wiersze tylko dla statusu zadania `Posting` lub `Księgowalne`,
+- w Kartotece projektu koloruje wiersze tylko dla typu zadania projektu `Posting` lub `Księgowalne`,
 - na Kartotece projektu przycisk `Ukryj sekcje` / `Pokaż sekcje` dynamicznie ukrywa lub pokazuje sekcje dodatkowe, pozostawiajac `Zadania` widoczne,
 - w oknie `Wiersze planowania projektu` nie stosuje oznaczen dotyczacych brakujacych wymiarow,
 - w Dzienniku projektow pokazuje czerwony wiersz z biala, pogrubiona czcionka i ikona `!`, gdy `Quantity` jest wieksze niz `6`,
