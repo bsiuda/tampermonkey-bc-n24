@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.23
+// @version      1.4.24
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -138,6 +138,8 @@
   const projectTaskGridOriginalStyles = new Map();
   let projectTaskGridElement = null;
   let projectTaskGridContainerElement = null;
+  let projectTaskMaximizedRoot = null;
+  let projectTaskRootOriginalTop = null;
   let projectTaskMaximizeListenersAttached = false;
 
   function normalizeText(value) {
@@ -223,7 +225,10 @@
     }
     .${PROJECT_TASK_MAXIMIZED_CLASS} {
       position: fixed !important;
-      inset: 40px 0 0 !important;
+      top: 40px;
+      right: 0 !important;
+      bottom: 0 !important;
+      left: 0 !important;
       z-index: 99999 !important;
       box-sizing: border-box !important;
       overflow: hidden !important;
@@ -584,6 +589,20 @@
     projectTaskGridContainerElement = null;
   }
 
+  function restoreProjectTaskRootTop() {
+    if (!projectTaskMaximizedRoot || !projectTaskRootOriginalTop) return;
+
+    projectTaskMaximizedRoot.classList.remove(PROJECT_TASK_MAXIMIZED_CLASS);
+    const { value, priority } = projectTaskRootOriginalTop;
+    if (value) {
+      projectTaskMaximizedRoot.style.setProperty("top", value, priority);
+    } else {
+      projectTaskMaximizedRoot.style.removeProperty("top");
+    }
+    projectTaskMaximizedRoot = null;
+    projectTaskRootOriginalTop = null;
+  }
+
   function resizeProjectTaskGrid() {
     if (!projectTaskMaximized) return;
 
@@ -618,8 +637,19 @@
 
   function setProjectTaskMaximized(maximized) {
     const stateChanged = projectTaskMaximized !== maximized;
-    projectTaskMaximized = maximized;
     const root = getProjectTaskSectionRoot();
+    if (maximized && root && (stateChanged || root !== projectTaskMaximizedRoot)) {
+      restoreProjectTaskRootTop();
+      projectTaskMaximizedRoot = root;
+      projectTaskRootOriginalTop = {
+        value: root.style.getPropertyValue("top"),
+        priority: root.style.getPropertyPriority("top")
+      };
+      const top = Math.max(40, root.getBoundingClientRect().top);
+      root.style.setProperty("top", `${top}px`, "important");
+    }
+
+    projectTaskMaximized = maximized;
     const classChanged = root
       && root.classList.contains(PROJECT_TASK_MAXIMIZED_CLASS) !== maximized;
     if (root) {
@@ -644,6 +674,7 @@
       }
     } else if (stateChanged || classChanged || projectTaskGridOriginalStyles.size) {
       restoreProjectTaskGridStyles();
+      restoreProjectTaskRootTop();
     }
 
     const button = document.getElementById(PROJECT_TASK_MAXIMIZE_BUTTON_ID);
