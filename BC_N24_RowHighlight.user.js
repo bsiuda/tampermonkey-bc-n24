@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.19
+// @version      1.4.20
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -102,6 +102,18 @@
     normalizeText("Posting"),
     normalizeText("Księgowalne")
   ]);
+  const PROJECT_CARD_TOGGLE_SECTION_NAMES = [
+    "Ogólne",
+    "Wartość zakontraktowana",
+    "Wymiary",
+    "Księgowanie",
+    "Faktura i wydanie",
+    "Czas trwania",
+    "RWT i uznanie",
+    "Integracja z systemami zewnętrznymi"
+  ].map(normalizeText);
+  const PROJECT_CARD_SECTION_HIDDEN_CLASS = "n24-project-card-section--hidden";
+  const PROJECT_CARD_SECTION_TOGGLE_ID = "n24-project-card-section-toggle";
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
@@ -118,6 +130,7 @@
   let autoApprovePendingClickTimer = null;
   let journalLongEntriesConfirmationTimer = null;
   let journalLongEntriesConfirmationPending = false;
+  let projectCardSectionsHidden = false;
 
   function normalizeText(value) {
     return (value || "")
@@ -196,6 +209,26 @@
       line-height: 1.35em;
       min-width: 1.35em;
       text-align: center;
+    }
+    .${PROJECT_CARD_SECTION_HIDDEN_CLASS} {
+      display: none !important;
+    }
+    #${PROJECT_CARD_SECTION_TOGGLE_ID} {
+      position: fixed;
+      top: 52px;
+      right: 170px;
+      z-index: 100000;
+      padding: 7px 12px;
+      border: 1px solid #0078d4;
+      border-radius: 3px;
+      background: #fff;
+      color: #0078d4;
+      font: 600 13px "Segoe UI", sans-serif;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    #${PROJECT_CARD_SECTION_TOGGLE_ID}:hover {
+      background: #f3f9fd;
     }
   `;
 
@@ -434,6 +467,59 @@
       || ""
     );
     return PROJECT_TASK_COLORING_STATUSES.has(status);
+  }
+
+  function getProjectCardSections() {
+    const sections = new Set();
+    document.querySelectorAll(".caption-text").forEach(caption => {
+      if (!PROJECT_CARD_TOGGLE_SECTION_NAMES.includes(normalizeText(caption.textContent || ""))) {
+        return;
+      }
+
+      const section = caption.closest(".ms-nav-band")
+        || caption.closest(".formhost-control.ms-nav-collapsible-part");
+      if (section) sections.add(section);
+    });
+    return [...sections];
+  }
+
+  function applyProjectCardSectionVisibility(isProjectCard) {
+    const button = document.getElementById(PROJECT_CARD_SECTION_TOGGLE_ID);
+    if (!isProjectCard) {
+      getProjectCardSections().forEach(section => {
+        section.classList.remove(PROJECT_CARD_SECTION_HIDDEN_CLASS);
+      });
+      button?.remove();
+      projectCardSectionsHidden = false;
+      return;
+    }
+
+    let toggle = button;
+    if (!toggle && document.body) {
+      toggle = document.createElement("button");
+      toggle.id = PROJECT_CARD_SECTION_TOGGLE_ID;
+      toggle.type = "button";
+      toggle.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        projectCardSectionsHidden = !projectCardSectionsHidden;
+        applyProjectCardSectionVisibility(true);
+      });
+      document.body.appendChild(toggle);
+    }
+    if (!toggle) return;
+
+    toggle.textContent = projectCardSectionsHidden ? "Pokaż sekcje" : "Ukryj sekcje";
+    toggle.setAttribute("aria-pressed", String(projectCardSectionsHidden));
+    toggle.title = projectCardSectionsHidden
+      ? "Pokaż ukryte sekcje Kartoteki projektu"
+      : "Ukryj sekcje Kartoteki projektu";
+    getProjectCardSections().forEach(section => {
+      section.classList.toggle(
+        PROJECT_CARD_SECTION_HIDDEN_CLASS,
+        projectCardSectionsHidden
+      );
+    });
   }
 
   function parseQuantity(value) {
@@ -760,6 +846,7 @@
       ensureStyles(coloringEnabled);
       applySensitiveTextMask();
       applyJournalLongEntriesConfirmation(isProjectJournal);
+      applyProjectCardSectionVisibility(isProjectCard);
       if (coloringEnabled) {
         applyFieldLabels();
         applyRowHighlights(pageId, isProjectJournal, isProjectCard);
