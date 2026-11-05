@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.25
+// @version      1.4.26
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -92,6 +92,7 @@
     "Zużycie budżetu",
     "Ilość"
   ].map(normalizeText);
+  const PROJECT_JOURNAL_QUANTITY_HEADERS = ["Ilość", "Quantity"].map(normalizeText);
   const PROJECT_CARD_TITLE = normalizeText("Kartoteka projektu");
   const PROJECT_TASK_HEADER_SIGNATURE = normalizeText("Nr zadania projektu");
   const PROJECT_TASK_TYPE_HEADER_ALIASES = [
@@ -335,13 +336,18 @@
     const pageTitle = normalizeText(document.body?.innerText || "");
     if (!pageTitle.includes(normalizeText("Dzienniki projektów"))) return false;
 
-    const headers = [...document.querySelectorAll('[id^="column_header_"]')]
-      .map(header => normalizeText(header.textContent || ""));
+    const headerElements = [...document.querySelectorAll('[id^="column_header_"]')];
+    const headers = headerElements.map(header => normalizeText(header.textContent || ""));
     const hasJournalHeaders = PROJECT_JOURNAL_HEADER_SIGNATURE.every(signature => (
       headers.some(header => header.includes(signature))
     ));
+    const hasQuantityHeader = headerElements.some(header => (
+      PROJECT_JOURNAL_QUANTITY_HEADERS.includes(normalizeText(header.textContent || ""))
+    ));
 
-    return hasJournalHeaders && Boolean(document.querySelector('[controlname="Quantity"]'));
+    return hasJournalHeaders && (
+      hasQuantityHeader || Boolean(document.querySelector('[controlname="Quantity"]'))
+    );
   }
 
   function isProjectCardPage() {
@@ -756,13 +762,20 @@
     return Number.isFinite(quantity) ? quantity : null;
   }
 
-  function getRowQuantity(row) {
-    const cell = row.querySelector('[controlname="Quantity"]');
+  function getRowQuantity(row, quantityHeader) {
+    const cell = (quantityHeader?.id
+      ? row.querySelector(`[aria-labelledby~="${quantityHeader.id}"]`)
+      : null)
+      || row.querySelector('[controlname="Quantity"]');
     if (!cell) return null;
 
-    const input = cell.querySelector("input");
-    const value = input?.value
+    const valueControl = cell.matches?.("input, textarea, select, [role='textbox']")
+      ? cell
+      : cell.querySelector?.("input, textarea, select, [role='textbox']");
+    const value = valueControl?.value
+      || valueControl?.getAttribute("value")
       || cell.getAttribute("title")
+      || cell.getAttribute("aria-label")
       || cell.textContent
       || "";
     return parseQuantity(value);
@@ -813,6 +826,11 @@
       ? document.querySelector('[controlname="Job Task Lines Subform"]')
       : document;
     const headers = [...(dimensionScope?.querySelectorAll('[id^="column_header_"]') || [])];
+    const journalQuantityHeader = isProjectJournal
+      ? headers.find(header => PROJECT_JOURNAL_QUANTITY_HEADERS.includes(
+        normalizeText(header.textContent || "")
+      ))
+      : null;
     const projectTaskTypeHeader = isProjectCard
       ? headers.find(header => PROJECT_TASK_TYPE_HEADER_ALIASES.includes(
         normalizeText(header.textContent || "")
@@ -878,7 +896,7 @@
 
       const firstCell = row.querySelector('[role="rowheader"]')
         || row.querySelector('[role="gridcell"]');
-      const quantity = isProjectJournal ? getRowQuantity(row) : null;
+      const quantity = isProjectJournal ? getRowQuantity(row, journalQuantityHeader) : null;
       const hasQuantityWarning = quantity !== null && quantity > QUANTITY_WARNING_THRESHOLD;
       if (hasQuantityWarning) {
         row.classList.add("n24-row--quantity-warning");
