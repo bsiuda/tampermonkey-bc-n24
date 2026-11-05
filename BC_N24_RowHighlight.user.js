@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.26
+// @version      1.4.27
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -58,6 +58,11 @@
       }
     }
   };
+  const SYSTEM_WIDE_DATE_CONTROLS = new Set([
+    "Document Date",
+    "PostingDate",
+    "Posting Date"
+  ]);
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // 2. KOLOROWANIE WIERSZY SIATKI
@@ -265,51 +270,65 @@
   // Implementacja â€” nie trzeba tu nic zmieniaÄ‡
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+  function buildControlCSS(keys, style) {
+    if (!keys.length) return "";
+
+    const sel        = keys.map(k => `[controlname="${k}"]`).join(", ");
+    const selEdit    = keys.map(k => `[controlname="${k}"] .edit-container`).join(", ");
+    const selInput   = keys.flatMap(k => [
+      `[controlname="${k}"] input`,
+      `[controlname="${k}"] [role="combobox"]`
+    ]).join(", ");
+    const selPicker  = keys.map(k => `[controlname="${k}"] .ms-nav-valuepickerbutton-embedded`).join(", ");
+    const selCaption = keys.flatMap(k =>
+      ["", ":link", ":visited", ":hover", ":focus"].map(
+        pseudo => `[controlname="${k}"] .ms-nav-edit-control-caption${pseudo}`
+      )
+    ).join(", ");
+
+    return `
+      ${sel} {
+        background: ${style.background} !important;
+        border: ${style.border} !important;
+        border-radius: 6px !important;
+        padding: 4px !important;
+      }
+      ${selEdit} { background: ${style.background} !important; }
+      ${selInput} {
+        background: ${style.inputBackground} !important;
+        color: ${style.textColor} !important;
+        border-color: ${style.textColor} !important;
+      }
+      ${selPicker} { color: ${style.textColor} !important; }
+      ${selCaption} {
+        background: transparent !important;
+        color: ${style.textColor} !important;
+        font-weight: 700 !important;
+        text-decoration: none !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        line-height: 1.2 !important;
+      }
+    `;
+  }
+
   function buildFieldCSS() {
-    return Object.entries(GROUPS).map(([, group]) => {
-      const { controls, style } = group;
-      const keys = Object.keys(controls);
-      if (!keys.length) return "";
+    return Object.values(GROUPS)
+      .map(({ controls, style }) => buildControlCSS(Object.keys(controls), style))
+      .join("\n");
+  }
 
-      const sel        = keys.map(k => `[controlname="${k}"]`).join(", ");
-      const selEdit    = keys.map(k => `[controlname="${k}"] .edit-container`).join(", ");
-      const selInput   = keys.flatMap(k => [
-        `[controlname="${k}"] input`,
-        `[controlname="${k}"] [role="combobox"]`
-      ]).join(", ");
-      const selPicker  = keys.map(k => `[controlname="${k}"] .ms-nav-valuepickerbutton-embedded`).join(", ");
-      const selCaption = keys.flatMap(k =>
-        ["", ":link", ":visited", ":hover", ":focus"].map(
-          pseudo => `[controlname="${k}"] .ms-nav-edit-control-caption${pseudo}`
-        )
-      ).join(", ");
+  function ensureSystemWideDateStyles() {
+    if (document.getElementById("n24-date-style")) return;
 
-      return `
-        ${sel} {
-          background: ${style.background} !important;
-          border: ${style.border} !important;
-          border-radius: 6px !important;
-          padding: 4px !important;
-        }
-        ${selEdit} { background: ${style.background} !important; }
-        ${selInput} {
-          background: ${style.inputBackground} !important;
-          color: ${style.textColor} !important;
-          border-color: ${style.textColor} !important;
-        }
-        ${selPicker} { color: ${style.textColor} !important; }
-        ${selCaption} {
-          background: transparent !important;
-          color: ${style.textColor} !important;
-          font-weight: 700 !important;
-          text-decoration: none !important;
-          white-space: normal !important;
-          overflow: visible !important;
-          text-overflow: clip !important;
-          line-height: 1.2 !important;
-        }
-      `;
-    }).join("\n");
+    const style = document.createElement("style");
+    style.id = "n24-date-style";
+    style.textContent = buildControlCSS(
+      Object.keys(GROUPS.red.controls).filter(control => SYSTEM_WIDE_DATE_CONTROLS.has(control)),
+      GROUPS.red.style
+    );
+    document.head.appendChild(style);
   }
 
   function ensureStyles(enabled) {
@@ -1077,6 +1096,7 @@
     const isHRnest = host === "app.hrnest.io";
 
     if (isBC) {
+      ensureSystemWideDateStyles();
       const pageId = getBusinessCentralPageId();
       const isProjectJournal = isProjectJournalPage();
       const isProjectCard = isProjectCardPage();
