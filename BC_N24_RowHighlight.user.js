@@ -5,7 +5,7 @@
 // @match        https://app.hrnest.io/*
 // @match        *://*/*
 // @run-at       document-end
-// @version      1.4.27
+// @version      1.4.28
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -431,24 +431,33 @@
     }, JOURNAL_NO_CLICK_DELAY_MS);
   }
 
+  function applyControlLabel(target, newText) {
+    document.querySelectorAll(`[controlname="${target}"]`).forEach((container) => {
+      const label = container.querySelector(".ms-nav-edit-control-caption");
+      if (label && label.textContent !== newText) label.textContent = newText;
+
+      const input = container.querySelector('input, [role="combobox"]');
+      if (input) input.setAttribute("aria-label", newText);
+
+      const pickerBtn = container.querySelector(".ms-nav-valuepickerbutton-embedded");
+      if (pickerBtn) {
+        pickerBtn.setAttribute("title", `OtwĂłrz selektor daty dla ${newText}`);
+        pickerBtn.setAttribute("aria-label", `OtwĂłrz selektor daty dla ${newText}`);
+      }
+    });
+  }
+
   function applyFieldLabels() {
     Object.values(GROUPS).forEach(({ controls }) => {
       Object.entries(controls).forEach(([target, newText]) => {
-        document.querySelectorAll(`[controlname="${target}"]`).forEach((container) => {
-          const label = container.querySelector(".ms-nav-edit-control-caption");
-          if (label && label.textContent !== newText) label.textContent = newText;
-
-          const input = container.querySelector('input, [role="combobox"]');
-          if (input) input.setAttribute("aria-label", newText);
-
-          const pickerBtn = container.querySelector(".ms-nav-valuepickerbutton-embedded");
-          if (pickerBtn) {
-            pickerBtn.setAttribute("title", `OtwĂłrz selektor daty dla ${newText}`);
-            pickerBtn.setAttribute("aria-label", `OtwĂłrz selektor daty dla ${newText}`);
-          }
-        });
+        applyControlLabel(target, newText);
       });
     });
+  }
+
+  function applySystemWidePostingDateLabel() {
+    const newText = GROUPS.red.controls.PostingDate;
+    ["PostingDate", "Posting Date"].forEach(target => applyControlLabel(target, newText));
   }
 
   function applySensitiveTextMask() {
@@ -1097,6 +1106,7 @@
 
     if (isBC) {
       ensureSystemWideDateStyles();
+      applySystemWidePostingDateLabel();
       const pageId = getBusinessCentralPageId();
       const isProjectJournal = isProjectJournalPage();
       const isProjectCard = isProjectCardPage();

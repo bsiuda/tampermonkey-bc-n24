@@ -15,7 +15,7 @@ Userscript do Business Central rozwijany pod Tampermonkey.
 
 Skrypt pomaga w codziennej pracy w Business Central:
 - podmienia wybrane etykiety pol,
-- koloruje daty księgowania i dokumentu w calym Business Central, a pozostale wskazane pola i wiersze na stronach `88`, `1001` i `50100` oraz w rozpoznanym po naglowkach widoku Dziennika projektow,
+- koloruje daty księgowania i dokumentu w calym Business Central oraz zmienia opis daty księgowania na `Data księgowania (ostatni dzień msc)`; pozostale wskazane pola i wiersze koloruje na stronach `88`, `1001` i `50100` oraz w rozpoznanym po naglowkach widoku Dziennika projektow,
 - oznacza wiersze wedlug typu budzetu,
 - zaznacza wiersze z brakami w wymaganych polach `W_*`,
 - na stronach `88` i `1001` pokazuje ikonke z lista brakujacych wymiarow,
