@@ -9,7 +9,7 @@
 // @match        https://nav24.atlassian.net/wiki/admin/guests
 // @match        https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users
 // @run-at       document-end
-// @version      1.5.0
+// @version      1.5.1
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301

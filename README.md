@@ -2,7 +2,7 @@
 
 Userscript do Business Central rozwijany pod Tampermonkey.
 
-![Version](https://img.shields.io/badge/version-1.5.0-0a7b83?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.5.1-0a7b83?style=flat-square)
 ![Tampermonkey](https://img.shields.io/badge/Tampermonkey-userscript-4caf50?style=flat-square)
 ![Business Central](https://img.shields.io/badge/Business%20Central-N24-1f6feb?style=flat-square)
 
@@ -87,6 +87,10 @@ Pop-Location
 - wszyscy powinni instalowac skrypt z jednego centralnego URL, a nie z lokalnego pliku.
 
 ## Changelog
+
+### 1.5.1
+
+- poprawiono kodowanie spacji w linkach do tworzenia wiadomości Outlook.
 
 ### 1.5.0
 
