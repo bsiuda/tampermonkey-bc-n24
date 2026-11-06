@@ -14,6 +14,7 @@ Userscript do Business Central rozwijany pod Tampermonkey.
 ## Co robi skrypt
 
 Skrypt pomaga w codziennej pracy w Business Central:
+- uruchamia sie tylko na `businesscentral.dynamics.com` i `app.hrnest.io`,
 - podmienia wybrane etykiety pol,
 - koloruje daty księgowania i dokumentu w calym Business Central oraz zmienia opis daty księgowania na `Data księgowania (ostatni dzień msc)`; pozostale wskazane pola i wiersze koloruje na stronach `88`, `1001` i `50100` oraz w rozpoznanym po naglowkach widoku Dziennika projektow,
 - oznacza wiersze wedlug typu budzetu,
@@ -25,7 +26,7 @@ Skrypt pomaga w codziennej pracy w Business Central:
 - na Kartotece projektu przycisk `Maksymalizuj zadania` / `Przywróć zadania` rozciąga listę zadań od pierwszej sekcji nad nią, przykrywając zwinięte karty, ale pozostawiając menu Kartoteki i menu zadań widoczne; widok można też przywrócić klawiszem `Esc`,
 - w oknie `Wiersze planowania projektu` nie stosuje oznaczen dotyczacych brakujacych wymiarow,
 - w Dzienniku projektow pokazuje czerwony wiersz z biala, pogrubiona czcionka i ikona `!`, gdy `Quantity` jest wieksze niz `6`,
-- w Dzienniku projektow po 2 sekundach automatycznie klika `Nie` w komunikacie o zapisach dluzszych niz `8h`,
+- w Dzienniku projektow po 2 sekundach automatycznie klika `Nie` w komunikacie o zapisach dluzszych niz `8h`; opcje mozna wylaczyc polem wyboru w komunikacie, a wybor jest zapamietywany w przegladarce,
 - pogrubia wiersze typu `Suma` / `Total`.
 
 ## Szybka instalacja

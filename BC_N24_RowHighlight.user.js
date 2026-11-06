@@ -3,9 +3,8 @@
 // @description  Oznaczanie pol i kolorowanie wierszy w Business Central dla zespolu N24.
 // @match        https://businesscentral.dynamics.com/*
 // @match        https://app.hrnest.io/*
-// @match        *://*/*
 // @run-at       document-end
-// @version      1.4.28
+// @version      1.4.29
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -91,6 +90,8 @@
   const QUANTITY_WARNING_THRESHOLD = 6;
   const ROW_INDICATOR_ATTRIBUTE = "data-n24-row-indicator";
   const LONG_JOURNAL_CONFIRMATION_TEXT = "W dzienniku są zapisy dłuższe niż 8h";
+  const JOURNAL_AUTO_NO_STORAGE_KEY = "n24_auto_deny_long_journal_entries";
+  const JOURNAL_AUTO_NO_TOGGLE_ID = "n24-journal-auto-no-toggle";
   const PROJECT_JOURNAL_HEADER_SIGNATURE = [
     "Nr zadania projektu",
     "DevOps ID",
@@ -395,6 +396,41 @@
     ));
   }
 
+  function isJournalAutoNoEnabled() {
+    return localStorage.getItem(JOURNAL_AUTO_NO_STORAGE_KEY) !== "false";
+  }
+
+  function ensureJournalAutoNoToggle(dialog) {
+    let toggle = dialog.querySelector(`#${JOURNAL_AUTO_NO_TOGGLE_ID} input`);
+    if (toggle) {
+      toggle.checked = isJournalAutoNoEnabled();
+      return;
+    }
+
+    const label = document.createElement("label");
+    label.id = JOURNAL_AUTO_NO_TOGGLE_ID;
+    label.style.cssText = "display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;";
+
+    toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.checked = isJournalAutoNoEnabled();
+    toggle.setAttribute("aria-label", "Automatycznie klikaj Nie");
+    toggle.addEventListener("change", () => {
+      localStorage.setItem(JOURNAL_AUTO_NO_STORAGE_KEY, String(toggle.checked));
+      if (!toggle.checked) {
+        cancelJournalConfirmation();
+      } else {
+        applyJournalLongEntriesConfirmation(isProjectJournalPage());
+      }
+    });
+
+    const text = document.createElement("span");
+    text.textContent = "Automatycznie klikaj Nie";
+    label.appendChild(toggle);
+    label.appendChild(text);
+    dialog.appendChild(label);
+  }
+
   function cancelJournalConfirmation() {
     if (journalLongEntriesConfirmationTimer !== null) {
       clearTimeout(journalLongEntriesConfirmationTimer);
@@ -405,7 +441,12 @@
 
   function applyJournalLongEntriesConfirmation(isProjectJournal) {
     const dialog = findProjectJournalDialog();
-    if (!dialog || !isProjectJournal) {
+    if (!dialog) {
+      cancelJournalConfirmation();
+      return;
+    }
+    ensureJournalAutoNoToggle(dialog);
+    if (!isProjectJournal || !isJournalAutoNoEnabled()) {
       cancelJournalConfirmation();
       return;
     }
@@ -416,7 +457,12 @@
       journalLongEntriesConfirmationTimer = null;
 
       const currentDialog = findProjectJournalDialog();
-      if (!dialog.isConnected || currentDialog !== dialog || !isProjectJournalPage()) {
+      if (
+        !isJournalAutoNoEnabled()
+        || !dialog.isConnected
+        || currentDialog !== dialog
+        || !isProjectJournalPage()
+      ) {
         journalLongEntriesConfirmationPending = false;
         return;
       }
@@ -1101,8 +1147,10 @@
 
   function run() {
     const host = location.hostname || "";
-    const isBC     = host.includes("businesscentral.dynamics.com");
+    const isBC     = host === "businesscentral.dynamics.com";
     const isHRnest = host === "app.hrnest.io";
+
+    if (!isBC && !isHRnest) return;
 
     if (isBC) {
       ensureSystemWideDateStyles();
