@@ -2,7 +2,7 @@
 
 Userscript do Business Central rozwijany pod Tampermonkey.
 
-![Version](https://img.shields.io/badge/version-1.1.0-0a7b83?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.4.30-0a7b83?style=flat-square)
 ![Tampermonkey](https://img.shields.io/badge/Tampermonkey-userscript-4caf50?style=flat-square)
 ![Business Central](https://img.shields.io/badge/Business%20Central-N24-1f6feb?style=flat-square)
 
@@ -14,7 +14,7 @@ Userscript do Business Central rozwijany pod Tampermonkey.
 ## Co robi skrypt
 
 Skrypt pomaga w codziennej pracy w Business Central:
-- uruchamia sie tylko na `businesscentral.dynamics.com` i `app.hrnest.io`,
+- funkcje Business Central i HRnest uruchamia tylko na `businesscentral.dynamics.com` i `app.hrnest.io`; na wskazanych stronach administracyjnych Atlassian dodaje czerwony przycisk nawigacyjny miedzy gosciami Confluence a uzytkownikami organizacji,
 - podmienia wybrane etykiety pol,
 - koloruje daty księgowania i dokumentu w calym Business Central oraz zmienia opis daty księgowania na `Data księgowania (ostatni dzień msc)`; pozostale wskazane pola i wiersze koloruje na stronach `88`, `1001` i `50100` oraz w rozpoznanym po naglowkach widoku Dziennika projektow,
 - oznacza wiersze wedlug typu budzetu,

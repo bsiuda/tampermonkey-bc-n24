@@ -3,8 +3,10 @@
 // @description  Oznaczanie pol i kolorowanie wierszy w Business Central dla zespolu N24.
 // @match        https://businesscentral.dynamics.com/*
 // @match        https://app.hrnest.io/*
+// @match        https://nav24.atlassian.net/wiki/admin/guests*
+// @match        https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users*
 // @run-at       document-end
-// @version      1.4.29
+// @version      1.4.30
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -124,6 +126,11 @@
   const PROJECT_CARD_SECTION_TOGGLE_ID = "n24-project-card-section-toggle";
   const PROJECT_TASK_MAXIMIZED_CLASS = "n24-project-task--maximized";
   const PROJECT_TASK_MAXIMIZE_BUTTON_ID = "n24-project-task-maximize";
+  const ATLASSIAN_NAV_BUTTON_ID = "n24-atlassian-admin-navigation";
+  const ATLASSIAN_GUESTS_HOST = "nav24.atlassian.net";
+  const ATLASSIAN_GUESTS_PATH = "/wiki/admin/guests";
+  const ATLASSIAN_USERS_HOST = "admin.atlassian.com";
+  const ATLASSIAN_USERS_PATH = "/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users";
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
@@ -1145,7 +1152,59 @@
     });
   }
 
+  function applyAtlassianNavigationButton() {
+    const path = (location.pathname || "").replace(/\/+$/, "") || "/";
+    let target = null;
+
+    if (location.hostname === ATLASSIAN_GUESTS_HOST && path === ATLASSIAN_GUESTS_PATH) {
+      target = {
+        href: `https://${ATLASSIAN_USERS_HOST}${ATLASSIAN_USERS_PATH}`,
+        label: "Przejdź do użytkowników"
+      };
+    } else if (location.hostname === ATLASSIAN_USERS_HOST && path === ATLASSIAN_USERS_PATH) {
+      target = {
+        href: `https://${ATLASSIAN_GUESTS_HOST}${ATLASSIAN_GUESTS_PATH}`,
+        label: "Przejdź do gości"
+      };
+    }
+
+    let button = document.getElementById(ATLASSIAN_NAV_BUTTON_ID);
+    if (!target) {
+      button?.remove();
+      return;
+    }
+
+    if (!button && document.body) {
+      button = document.createElement("a");
+      button.id = ATLASSIAN_NAV_BUTTON_ID;
+      document.body.appendChild(button);
+    }
+    if (!button) return;
+
+    button.href = target.href;
+    button.textContent = target.label;
+    button.setAttribute("aria-label", target.label);
+    button.style.cssText = [
+      "position:fixed",
+      "right:24px",
+      "bottom:24px",
+      "z-index:2147483647",
+      "display:inline-flex",
+      "align-items:center",
+      "padding:12px 18px",
+      "border:0",
+      "border-radius:6px",
+      "background:#d32f2f",
+      "color:#fff",
+      "font:600 14px/1.2 sans-serif",
+      "text-decoration:none",
+      "box-shadow:0 2px 8px rgba(0,0,0,.3)"
+    ].join(";");
+  }
+
   function run() {
+    applyAtlassianNavigationButton();
+
     const host = location.hostname || "";
     const isBC     = host === "businesscentral.dynamics.com";
     const isHRnest = host === "app.hrnest.io";

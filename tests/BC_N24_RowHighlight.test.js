@@ -107,6 +107,7 @@ function makeDialog(text = "W dzienniku są zapisy dłuższe niż 8h") {
 function makeHarness({
   hostname = "businesscentral.dynamics.com",
   search = "?page=50100",
+  pathname = "/",
   dialogs = [],
   storage = new Map(),
   bodyText = "Dzienniki projektów",
@@ -160,7 +161,7 @@ function makeHarness({
   let nextTimerId = 0;
   const context = {
     document,
-    location: { hostname, search, pathname: "/", href: `https://${hostname}/` },
+    location: { hostname, search, pathname, href: `https://${hostname}${pathname}${search}` },
     localStorage: {
       getItem: key => storage.has(key) ? storage.get(key) : null,
       setItem: (key, value) => storage.set(key, String(value))
@@ -168,7 +169,12 @@ function makeHarness({
     sessionStorage: { getItem: () => null, setItem() {} },
     window: { innerHeight: 900, addEventListener() {} },
     NodeFilter: { SHOW_TEXT: 4, FILTER_REJECT: 2, FILTER_ACCEPT: 1 },
-    MutationObserver: class { observe() {} },
+    MutationObserver: class {
+      constructor(callback) {
+        context.observerCallback = callback;
+      }
+      observe() {}
+    },
     URLSearchParams,
     setTimeout(callback, delay) {
       const timer = { id: ++nextTimerId, callback, delay, cancelled: false };
@@ -187,6 +193,10 @@ function makeHarness({
     document,
     storage,
     timers,
+    location: context.location,
+    runObserver() {
+      context.observerCallback();
+    },
     runNextTimer() {
       const timer = timers.find(item => !item.cancelled && !item.ran);
       if (!timer) return null;
@@ -201,11 +211,13 @@ function getAutoNoToggle(dialog) {
   return dialog.find(element => element.tagName === "INPUT") || null;
 }
 
-test("userscript matching is limited to the two supported HTTPS hosts", () => {
+test("userscript matching is limited to the supported HTTPS hosts and Atlassian admin routes", () => {
   const matches = [...source.matchAll(/^\/\/ @match\s+(.+)$/gm)].map(match => match[1]);
   assert.deepEqual(matches, [
     "https://businesscentral.dynamics.com/*",
-    "https://app.hrnest.io/*"
+    "https://app.hrnest.io/*",
+    "https://nav24.atlassian.net/wiki/admin/guests*",
+    "https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users*"
   ]);
   assert.doesNotMatch(source, /^\/\/ @match\s+\*:/m);
 
@@ -215,6 +227,46 @@ test("userscript matching is limited to the two supported HTTPS hosts", () => {
 
   const hrnest = makeHarness({ hostname: "app.hrnest.io" });
   assert.equal(hrnest.document.treeWalkerCount, 1);
+});
+
+test("Atlassian admin pages show one red navigation link to the corresponding page", () => {
+  const guests = makeHarness({
+    hostname: "nav24.atlassian.net",
+    pathname: "/wiki/admin/guests"
+  });
+  let button = guests.document.getElementById("n24-atlassian-admin-navigation");
+  assert.ok(button);
+  assert.equal(button.tagName, "A");
+  assert.equal(button.href, "https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users");
+  assert.equal(button.textContent, "Przejdź do użytkowników");
+  assert.match(button.style.cssText, /background:#d32f2f/);
+
+  guests.runObserver();
+  assert.equal(guests.document.body.children.filter(child => child.id === "n24-atlassian-admin-navigation").length, 1);
+
+  const users = makeHarness({
+    hostname: "admin.atlassian.com",
+    pathname: "/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users"
+  });
+  button = users.document.getElementById("n24-atlassian-admin-navigation");
+  assert.ok(button);
+  assert.equal(button.href, "https://nav24.atlassian.net/wiki/admin/guests");
+  assert.equal(button.textContent, "Przejdź do gości");
+});
+
+test("Atlassian navigation is removed on unrelated SPA routes and organizations", () => {
+  const harness = makeHarness({
+    hostname: "admin.atlassian.com",
+    pathname: "/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users"
+  });
+  harness.location.pathname = "/o/another-org/users";
+  harness.runObserver();
+  assert.equal(harness.document.getElementById("n24-atlassian-admin-navigation"), null);
+
+  harness.location.hostname = "nav24.atlassian.net";
+  harness.location.pathname = "/wiki/admin/guests/invited";
+  harness.runObserver();
+  assert.equal(harness.document.getElementById("n24-atlassian-admin-navigation"), null);
 });
 
 test("matching project-journal warning adds an enabled toggle and clicks Nie after two seconds", () => {
