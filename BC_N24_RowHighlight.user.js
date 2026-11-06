@@ -3,10 +3,10 @@
 // @description  Oznaczanie pol i kolorowanie wierszy w Business Central dla zespolu N24.
 // @match        https://businesscentral.dynamics.com/*
 // @match        https://app.hrnest.io/*
-// @match        https://nav24.atlassian.net/wiki/admin/guests*
-// @match        https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users*
+// @match        https://nav24.atlassian.net/wiki/admin/guests
+// @match        https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users
 // @run-at       document-end
-// @version      1.4.30
+// @version      1.4.31
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -1181,10 +1181,7 @@
     }
     if (!button) return;
 
-    button.href = target.href;
-    button.textContent = target.label;
-    button.setAttribute("aria-label", target.label);
-    button.style.cssText = [
+    const style = [
       "position:fixed",
       "right:24px",
       "bottom:24px",
@@ -1200,6 +1197,13 @@
       "text-decoration:none",
       "box-shadow:0 2px 8px rgba(0,0,0,.3)"
     ].join(";");
+
+    if (button.href !== target.href) button.href = target.href;
+    if (button.textContent !== target.label) button.textContent = target.label;
+    if (button.getAttribute("aria-label") !== target.label) {
+      button.setAttribute("aria-label", target.label);
+    }
+    if (button.style.cssText !== style) button.style.cssText = style;
   }
 
   function run() {

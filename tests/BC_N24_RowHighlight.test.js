@@ -14,12 +14,31 @@ class Element {
     this.children = [];
     this.attributes = new Map();
     this.listeners = new Map();
-    this.style = { cssText: "" };
+    this.style = { _cssText: "" };
+    Object.defineProperty(this.style, "cssText", {
+      get: () => this.style._cssText,
+      set: value => {
+        this.style.cssTextWriteCount += 1;
+        this.style._cssText = value;
+      }
+    });
+    this.style.cssTextWriteCount = 0;
+    this.hrefWriteCount = 0;
+    this.textContentWriteCount = 0;
+    this.attributeWriteCount = 0;
     this.isConnected = true;
     this.disabled = false;
     this.checked = false;
     this.parentElement = null;
     this.buttons = [];
+    this._href = "";
+    Object.defineProperty(this, "href", {
+      get: () => this._href,
+      set: value => {
+        this.hrefWriteCount += 1;
+        this._href = String(value);
+      }
+    });
   }
 
   get textContent() {
@@ -27,6 +46,7 @@ class Element {
   }
 
   set textContent(value) {
+    this.textContentWriteCount += 1;
     this._textContent = value;
     this.children = [];
   }
@@ -38,6 +58,7 @@ class Element {
   }
 
   setAttribute(name, value) {
+    this.attributeWriteCount += 1;
     this.attributes.set(name, String(value));
   }
 
@@ -216,8 +237,8 @@ test("userscript matching is limited to the supported HTTPS hosts and Atlassian 
   assert.deepEqual(matches, [
     "https://businesscentral.dynamics.com/*",
     "https://app.hrnest.io/*",
-    "https://nav24.atlassian.net/wiki/admin/guests*",
-    "https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users*"
+    "https://nav24.atlassian.net/wiki/admin/guests",
+    "https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users"
   ]);
   assert.doesNotMatch(source, /^\/\/ @match\s+\*:/m);
 
@@ -241,8 +262,21 @@ test("Atlassian admin pages show one red navigation link to the corresponding pa
   assert.equal(button.textContent, "Przejdź do użytkowników");
   assert.match(button.style.cssText, /background:#d32f2f/);
 
+  const writes = [
+    button.hrefWriteCount,
+    button.textContentWriteCount,
+    button.attributeWriteCount,
+    button.style.cssTextWriteCount
+  ];
+  guests.runObserver();
   guests.runObserver();
   assert.equal(guests.document.body.children.filter(child => child.id === "n24-atlassian-admin-navigation").length, 1);
+  assert.deepEqual([
+    button.hrefWriteCount,
+    button.textContentWriteCount,
+    button.attributeWriteCount,
+    button.style.cssTextWriteCount
+  ], writes, "unchanged rerenders must not mutate the button and retrigger the document observer");
 
   const users = makeHarness({
     hostname: "admin.atlassian.com",
