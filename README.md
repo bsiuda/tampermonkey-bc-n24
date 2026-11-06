@@ -2,7 +2,7 @@
 
 Userscript do Business Central rozwijany pod Tampermonkey.
 
-![Version](https://img.shields.io/badge/version-1.4.31-0a7b83?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.5.0-0a7b83?style=flat-square)
 ![Tampermonkey](https://img.shields.io/badge/Tampermonkey-userscript-4caf50?style=flat-square)
 ![Business Central](https://img.shields.io/badge/Business%20Central-N24-1f6feb?style=flat-square)
 
@@ -14,7 +14,10 @@ Userscript do Business Central rozwijany pod Tampermonkey.
 ## Co robi skrypt
 
 Skrypt pomaga w codziennej pracy w Business Central:
-- funkcje Business Central i HRnest uruchamia tylko na `businesscentral.dynamics.com` i `app.hrnest.io`; na dokladnych stronach administracyjnych Atlassian dodaje czerwony przycisk nawigacyjny miedzy gosciami Confluence a uzytkownikami organizacji,
+- funkcje Business Central i HRnest uruchamia tylko na `businesscentral.dynamics.com` i `app.hrnest.io`; na dokladnych stronach administracyjnych Atlassian dodaje czerwony przycisk nawigacyjny miedzy gosciami Confluence a uzytkownikami organizacji; na `visualstudio.com` (takze subdomenach) i `dev.azure.com` pokazuje przyciski szybkich akcji Azure DevOps,
+- w Azure DevOps przycisk `Wyślij wycenę` tworzy wiadomość w Outlooku z opisem wyceny i linkami do elementu ADO oraz opcjonalnej strony Confluence; kopiuje wersję HTML i tekstową do schowka, a przy braku uprawnień pokazuje komunikat,
+- w Azure DevOps przycisk `Wyślij ankietę planowania` tworzy wiadomość Outlook z tematem zawierającym ID, kod projektu i tytuł,
+- w Azure DevOps przycisk `Pokaż Project Task w BC` otwiera stronę `50100` w Business Central z filtrem na ID work itemu,
 - podmienia wybrane etykiety pol,
 - koloruje daty księgowania i dokumentu w calym Business Central oraz zmienia opis daty księgowania na `Data księgowania (ostatni dzień msc)`; pozostale wskazane pola i wiersze koloruje na stronach `88`, `1001` i `50100` oraz w rozpoznanym po naglowkach widoku Dziennika projektow,
 - oznacza wiersze wedlug typu budzetu,
@@ -84,6 +87,12 @@ Pop-Location
 - wszyscy powinni instalowac skrypt z jednego centralnego URL, a nie z lokalnego pliku.
 
 ## Changelog
+
+### 1.5.0
+
+- dodano trzy przyciski szybkich akcji na stronach `visualstudio.com` i `dev.azure.com`,
+- dodano tworzenie wiadomości Outlook dla wyceny i ankiety planowania oraz link do Project Task w Business Central,
+- dodano testy offline dla dopasowania hostów, tras ADO, treści wiadomości, odmowy schowka i kodowania filtra BC.
 
 ### 1.1.0
 

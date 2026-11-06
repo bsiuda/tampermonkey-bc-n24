@@ -29,6 +29,8 @@ class Element {
     this.isConnected = true;
     this.disabled = false;
     this.checked = false;
+    this.value = "";
+    this.title = "";
     this.parentElement = null;
     this.buttons = [];
     this._href = "";
@@ -90,11 +92,16 @@ class Element {
       const label = this.find(element => element.id === id);
       return label?.find(element => element.tagName === "INPUT") || null;
     }
+    if (selector === "input, textarea") {
+      return this.find(element => element.tagName === "INPUT" || element.tagName === "TEXTAREA");
+    }
     return null;
   }
 
   querySelectorAll(selector) {
-    if (selector === "button") return this.buttons;
+    if (selector === "button") {
+      return [...this.buttons, ...this.children.filter(child => child.tagName === "BUTTON")];
+    }
     return [];
   }
 
@@ -129,6 +136,7 @@ function makeHarness({
   hostname = "businesscentral.dynamics.com",
   search = "?page=50100",
   pathname = "/",
+  title = "",
   dialogs = [],
   storage = new Map(),
   bodyText = "Dzienniki projektów",
@@ -156,6 +164,7 @@ function makeHarness({
     body,
     head,
     documentElement,
+    title,
     createElement: tagName => new Element(tagName),
     createTreeWalker: () => {
       document.treeWalkerCount += 1;
@@ -179,16 +188,45 @@ function makeHarness({
   head.appendChild = Element.prototype.appendChild.bind(head);
 
   const timers = [];
+  const openedUrls = [];
   let nextTimerId = 0;
   const context = {
     document,
-    location: { hostname, search, pathname, href: `https://${hostname}${pathname}${search}` },
+    location: {
+      hostname,
+      host: hostname,
+      origin: `https://${hostname}`,
+      search,
+      pathname,
+      href: `https://${hostname}${pathname}${search}`
+    },
     localStorage: {
       getItem: key => storage.has(key) ? storage.get(key) : null,
       setItem: (key, value) => storage.set(key, String(value))
     },
     sessionStorage: { getItem: () => null, setItem() {} },
-    window: { innerHeight: 900, addEventListener() {} },
+    window: {
+      innerHeight: 900,
+      openedUrls,
+      open(url) {
+        openedUrls.push(url);
+        return {};
+      },
+      addEventListener() {}
+    },
+    navigator: {
+      clipboard: {
+        write: async items => { context.clipboardItems = items; },
+        writeText: async text => { context.clipboardText = text; }
+      }
+    },
+    URL,
+    Blob,
+    ClipboardItem: class ClipboardItem {
+      constructor(data) {
+        this.data = data;
+      }
+    },
     NodeFilter: { SHOW_TEXT: 4, FILTER_REJECT: 2, FILTER_ACCEPT: 1 },
     MutationObserver: class {
       constructor(callback) {
@@ -214,6 +252,13 @@ function makeHarness({
     document,
     storage,
     timers,
+    openedUrls,
+    get clipboardItems() {
+      return context.clipboardItems;
+    },
+    setClipboardWrite(callback) {
+      context.navigator.clipboard.write = callback;
+    },
     location: context.location,
     runObserver() {
       context.observerCallback();
@@ -237,6 +282,9 @@ test("userscript matching is limited to the supported HTTPS hosts and Atlassian 
   assert.deepEqual(matches, [
     "https://businesscentral.dynamics.com/*",
     "https://app.hrnest.io/*",
+    "https://visualstudio.com/*",
+    "https://*.visualstudio.com/*",
+    "https://dev.azure.com/*",
     "https://nav24.atlassian.net/wiki/admin/guests",
     "https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users"
   ]);
@@ -248,6 +296,125 @@ test("userscript matching is limited to the supported HTTPS hosts and Atlassian 
 
   const hrnest = makeHarness({ hostname: "app.hrnest.io" });
   assert.equal(hrnest.document.treeWalkerCount, 1);
+  assert.equal(hrnest.document.getElementById("n24-ado-quick-actions"), null);
+});
+
+test("Azure DevOps quick actions are limited to exact supported domains", () => {
+  for (const [hostname, expected] of [
+    ["visualstudio.com", true],
+    ["org.visualstudio.com", true],
+    ["dev.azure.com", true],
+    ["evilvisualstudio.com", false],
+    ["visualstudio.com.evil.test", false],
+    ["sub.dev.azure.com", false],
+    ["dev.azure.com.evil.test", false],
+    ["nav24.atlassian.net", false]
+  ]) {
+    const harness = makeHarness({ hostname });
+    assert.equal(
+      Boolean(harness.document.getElementById("n24-ado-quick-actions")),
+      expected,
+      hostname
+    );
+  }
+});
+
+test("ADO actions generate the requested estimate, planning, and encoded Business Central links", async () => {
+  const harness = makeHarness({
+    hostname: "dev.azure.com",
+    pathname: "/org/N24%20Cooperation/_workitems/edit/123",
+    search: "?view=details",
+    title: "123: N24 Meeting 123 Planning meeting - Azure DevOps"
+  });
+  const provider = new Element("div", JSON.stringify({
+    data: {
+      "ms.vss-work-web.work-item-data-provider": {
+        "work-item-data": {
+          fields: {
+            "2713745": '<a href="https://nav24.atlassian.net/wiki/spaces/PRJ/pages/123">specification</a>'
+          }
+        }
+      }
+    }
+  }));
+  provider.id = "dataProviders";
+  harness.document.body.appendChild(provider);
+
+  const panel = harness.document.getElementById("n24-ado-quick-actions");
+  assert.ok(panel);
+  const [estimateButton, planningButton, businessCentralButton] = panel.querySelectorAll("button");
+  assert.deepEqual(
+    [estimateButton.textContent, planningButton.textContent, businessCentralButton.textContent],
+    ["Wyślij wycenę", "Wyślij ankietę planowania", "Pokaż Project Task w BC"]
+  );
+
+  estimateButton.dispatch("click");
+  await new Promise(resolve => setImmediate(resolve));
+  const estimateUrl = new URL(harness.openedUrls[0]);
+  assert.equal(estimateUrl.origin, "https://outlook.office.com");
+  assert.equal(estimateUrl.pathname, "/mail/deeplink/compose");
+  assert.equal(estimateUrl.searchParams.get("subject"), "Wycena do akceptacji: N24 Meeting 123 Planning meeting - Azure DevOps #123");
+  assert.match(estimateUrl.searchParams.get("body"), /Wykonanie niniejszej modyfikacji wyceniliśmy na kwotę XXX PLN/);
+  assert.match(estimateUrl.searchParams.get("body"), /https:\/\/nav24\.atlassian\.net\/wiki\/spaces\/PRJ\/pages\/123/);
+  assert.equal(harness.clipboardItems.length, 1);
+  assert.equal(await harness.clipboardItems[0].data["text/plain"].text(), estimateUrl.searchParams.get("body"));
+  assert.match(await harness.clipboardItems[0].data["text/html"].text(), /<a href="https:\/\/nav24\.atlassian\.net/);
+
+  planningButton.dispatch("click");
+  const planningUrl = new URL(harness.openedUrls[1]);
+  assert.equal(planningUrl.searchParams.get("subject"), "123 N24 | Planning meeting");
+  assert.equal(
+    planningUrl.searchParams.get("body"),
+    "Dzień dobry,\n\nchciałbym prosić o spotkanie dot. zagadnienia z tytułu maila. Uprzejmie proszę o wybór (zagłosowanie) pasujących Państwu terminów w ankiecie planowania poniżej."
+  );
+
+  businessCentralButton.dispatch("click");
+  const businessCentralUrl = new URL(harness.openedUrls[2]);
+  assert.equal(
+    `${businessCentralUrl.origin}${businessCentralUrl.pathname}`,
+    "https://businesscentral.dynamics.com/1dc3db50-611a-4d1f-a628-3302743e8941/NAV24_PL/"
+  );
+  assert.equal(businessCentralUrl.searchParams.get("company"), "NAV24 Sp. z o.o.");
+  assert.equal(businessCentralUrl.searchParams.get("page"), "50100");
+  assert.equal(
+    businessCentralUrl.searchParams.get("filter"),
+    "'Job Task'.'AzureDev.Bill.WorkItemID N24' IS '123'"
+  );
+  assert.match(businessCentralUrl.search, /filter=%27Job\+Task%27/);
+});
+
+test("ADO actions reject routes without a numeric work item ID", () => {
+  for (const pathname of [
+    "/org/project/_workitems/edit/not-a-number",
+    "/org/project/_workitems/edit/123/extra"
+  ]) {
+    const harness = makeHarness({ hostname: "dev.azure.com", pathname });
+    const panel = harness.document.getElementById("n24-ado-quick-actions");
+    panel.querySelectorAll("button").forEach(button => button.dispatch("click"));
+    assert.deepEqual(harness.openedUrls, []);
+    assert.match(
+      harness.document.getElementById("n24-ado-quick-actions-status").textContent,
+      /Nie znaleziono ID zadania ADO/
+    );
+  }
+});
+
+test("estimate action reports denied clipboard access without losing the Outlook draft", async () => {
+  const harness = makeHarness({
+    hostname: "visualstudio.com",
+    pathname: "/org/project/_workitems/edit/88",
+    title: "88: Test"
+  });
+  const panel = harness.document.getElementById("n24-ado-quick-actions");
+  harness.setClipboardWrite(async () => { throw new Error("Permission denied"); });
+  const estimateButton = panel.querySelectorAll("button")[0];
+  estimateButton.dispatch("click");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(harness.openedUrls.length, 1);
+  assert.match(
+    harness.document.getElementById("n24-ado-quick-actions-status").textContent,
+    /Permission denied/
+  );
 });
 
 test("Atlassian admin pages show one red navigation link to the corresponding page", () => {

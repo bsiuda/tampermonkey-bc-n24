@@ -3,10 +3,13 @@
 // @description  Oznaczanie pol i kolorowanie wierszy w Business Central dla zespolu N24.
 // @match        https://businesscentral.dynamics.com/*
 // @match        https://app.hrnest.io/*
+// @match        https://visualstudio.com/*
+// @match        https://*.visualstudio.com/*
+// @match        https://dev.azure.com/*
 // @match        https://nav24.atlassian.net/wiki/admin/guests
 // @match        https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users
 // @run-at       document-end
-// @version      1.4.31
+// @version      1.5.0
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -131,6 +134,11 @@
   const ATLASSIAN_GUESTS_PATH = "/wiki/admin/guests";
   const ATLASSIAN_USERS_HOST = "admin.atlassian.com";
   const ATLASSIAN_USERS_PATH = "/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users";
+  const ADO_QUICK_ACTIONS_ID = "n24-ado-quick-actions";
+  const ADO_WORK_ITEM_PATH = /\/_workitems\/edit\/(\d+)\/?$/i;
+  const ADO_OUTLOOK_COMPOSE_URL = "https://outlook.office.com/mail/deeplink/compose";
+  const ADO_BC_TASK_BASE_URL = "https://businesscentral.dynamics.com/1dc3db50-611a-4d1f-a628-3302743e8941/NAV24_PL/";
+  const ADO_BC_COMPANY = "NAV24 Sp. z o.o.";
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
@@ -1206,8 +1214,256 @@
     if (button.style.cssText !== style) button.style.cssText = style;
   }
 
+  function isAzureDevOpsHost(hostname) {
+    const host = (hostname || "").toLowerCase();
+    return host === "dev.azure.com"
+      || host === "visualstudio.com"
+      || host.endsWith(".visualstudio.com");
+  }
+
+  function getAdoWorkItem() {
+    if (!isAzureDevOpsHost(location.hostname)) return null;
+    const match = (location.pathname || "").match(ADO_WORK_ITEM_PATH);
+    if (!match) return null;
+    return {
+      id: match[1],
+      url: `${location.origin || `https://${location.host || location.hostname}`}${location.pathname}`
+    };
+  }
+
+  function getAdoWorkItemTitle() {
+    const match = (document.title || "").match(/\d+:\s*(.+)$/);
+    return match ? match[1].trim() : (document.title || "").trim();
+  }
+
+  function getAdoConfluenceUrl() {
+    try {
+      const provider = document.getElementById("dataProviders");
+      if (!provider) return "";
+      const data = JSON.parse(provider.textContent);
+      const fields = data.data["ms.vss-work-web.work-item-data-provider"]["work-item-data"].fields;
+      const html = fields["2713745"] || "";
+      const match = html.match(/href="([^"]+)"/i);
+      if (!match) return "";
+      const url = new URL(match[1], location.href);
+      return url.protocol === "https:" ? url.href : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function getAdoProjectInfo() {
+    const parts = (location.pathname || "").split("/").filter(Boolean);
+    const project = decodeURIComponent(parts[1] || "");
+    const projectCode = project
+      .replace(/\s+Cooperation\b.*$/i, "")
+      .trim()
+      .split(/\s+/)[0]
+      ?.toUpperCase() || "PROJEKT";
+    const id = getAdoWorkItem()?.id || "";
+    let title = (document.title || "")
+      .replace(/^\s*\d+\s*:\s*/, "")
+      .replace(new RegExp(`^N24\\s+Meeting\\s+${escapeRegExp(id)}\\s*`, "i"), "")
+      .replace(new RegExp(`^${escapeRegExp(id)}\\s*[:-]?\\s*`, "i"), "")
+      .replace(/\s+-\s+Azure DevOps.*$/i, "")
+      .trim();
+    title = title.replace(new RegExp(`^${escapeRegExp(projectCode)}\\s*\\|\\s*`, "i"), "");
+    return { projectCode, projectTitle: title };
+  }
+
+  function makeOutlookComposeUrl(subject, body) {
+    const url = new URL(ADO_OUTLOOK_COMPOSE_URL);
+    url.searchParams.set("subject", subject);
+    url.searchParams.set("body", body);
+    return url.href;
+  }
+
+  function makeEstimateEmail(workItem) {
+    const title = getAdoWorkItemTitle() || `Work item ${workItem.id}`;
+    const confluenceUrl = getAdoConfluenceUrl();
+    const subject = `Wycena do akceptacji: ${title} #${workItem.id}`;
+    const body = [
+      "Dzień dobry,",
+      "",
+      "przesyłam link do Confluence z opisem modyfikacji do akceptacji.",
+      "",
+      "Opis modyfikacji zawiera:",
+      "",
+      "- Wymaganie / cel biznesowy",
+      "- Projekt funkcjonalny",
+      "- Kryteria akceptacji",
+      "- Scenariusze testowe",
+      "",
+      "Wykonanie niniejszej modyfikacji wyceniliśmy na kwotę XXX PLN.",
+      "Po Państwa akceptacji przystąpimy do realizacji.",
+      "",
+      title,
+      workItem.url,
+      ...(confluenceUrl ? [confluenceUrl] : []),
+      "",
+    ].join("\n");
+    const escapeHtml = value => value.replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[char]);
+    const html = [
+      "<p>Dzień dobry,</p>",
+      "<p>przesyłam link do Confluence z opisem modyfikacji do akceptacji.</p>",
+      "<p>Opis modyfikacji zawiera:</p>",
+      "<ul><li>Wymaganie / cel biznesowy</li><li>Projekt funkcjonalny</li><li>Kryteria akceptacji</li><li>Scenariusze testowe</li></ul>",
+      "<p>Wykonanie niniejszej modyfikacji wyceniliśmy na kwotę <b>XXX PLN</b>.<br>Po Państwa akceptacji przystąpimy do realizacji.</p>",
+      `<p><a href="${escapeHtml(workItem.url)}">${escapeHtml(title)}</a>`,
+      ...(confluenceUrl ? [`<br><a href="${escapeHtml(confluenceUrl)}">${escapeHtml(confluenceUrl)}</a>`] : []),
+      "</p>"
+    ].join("");
+    return { subject, body, html };
+  }
+
+  function makePlanningEmail(workItem) {
+    const { projectCode, projectTitle } = getAdoProjectInfo();
+    const subject = `${workItem.id} ${projectCode} | ${projectTitle}`;
+    const body = "Dzień dobry,\n\nchciałbym prosić o spotkanie dot. zagadnienia z tytułu maila. Uprzejmie proszę o wybór (zagłosowanie) pasujących Państwu terminów w ankiecie planowania poniżej.";
+    return { subject, body };
+  }
+
+  function makeBusinessCentralTaskUrl(workItemId) {
+    const url = new URL(ADO_BC_TASK_BASE_URL);
+    url.searchParams.set("company", ADO_BC_COMPANY);
+    url.searchParams.set("page", "50100");
+    url.searchParams.set("filter", `'Job Task'.'AzureDev.Bill.WorkItemID N24' IS '${workItemId}'`);
+    return url.href;
+  }
+
+  function setAdoActionStatus(status, message) {
+    const statusElement = document.getElementById(`${ADO_QUICK_ACTIONS_ID}-status`);
+    if (!statusElement) return;
+    statusElement.textContent = message;
+    statusElement.style.display = message ? "block" : "none";
+    if (status) statusElement.setAttribute("data-status", status);
+  }
+
+  function openAdoOutlookCompose(url) {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function copyEstimateToClipboard(estimate) {
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
+      throw new Error("Schowek jest niedostępny.");
+    }
+    if (navigator.clipboard.write && typeof ClipboardItem !== "undefined") {
+      const item = new ClipboardItem({
+        "text/html": new Blob([estimate.html], { type: "text/html" }),
+        "text/plain": new Blob([estimate.body], { type: "text/plain" })
+      });
+      await navigator.clipboard.write([item]);
+      return;
+    }
+    if (navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(estimate.body);
+      return;
+    }
+    throw new Error("Przeglądarka nie obsługuje zapisu do schowka.");
+  }
+
+  function applyAdoQuickActions() {
+    const isAdo = isAzureDevOpsHost(location.hostname);
+    let panel = document.getElementById(ADO_QUICK_ACTIONS_ID);
+    if (!isAdo) {
+      panel?.remove();
+      return;
+    }
+    if (!panel && document.body) {
+      panel = document.createElement("div");
+      panel.id = ADO_QUICK_ACTIONS_ID;
+      panel.style.cssText = [
+        "position:fixed",
+        "right:24px",
+        "bottom:24px",
+        "z-index:2147483647",
+        "display:flex",
+        "flex-direction:column",
+        "align-items:stretch",
+        "gap:8px",
+        "max-width:min(360px,calc(100vw - 32px))",
+        "font:600 14px/1.2 'Segoe UI',sans-serif"
+      ].join(";");
+      const makeButton = (id, label, onClick) => {
+        const button = document.createElement("button");
+        button.id = id;
+        button.type = "button";
+        button.textContent = label;
+        button.style.cssText = [
+          "padding:11px 16px",
+          "border:0",
+          "border-radius:6px",
+          "background:#0078d4",
+          "color:#fff",
+          "font:inherit",
+          "cursor:pointer",
+          "box-shadow:0 2px 8px rgba(0,0,0,.3)"
+        ].join(";");
+        button.addEventListener("click", onClick);
+        panel.appendChild(button);
+      };
+      makeButton(`${ADO_QUICK_ACTIONS_ID}-estimate`, "Wyślij wycenę", async event => {
+        event.preventDefault();
+        const workItem = getAdoWorkItem();
+        if (!workItem) {
+          setAdoActionStatus("error", "Nie znaleziono ID zadania ADO. Otwórz stronę elementu roboczego.");
+          return;
+        }
+        const estimate = makeEstimateEmail(workItem);
+        openAdoOutlookCompose(makeOutlookComposeUrl(estimate.subject, estimate.body));
+        try {
+          await copyEstimateToClipboard(estimate);
+          setAdoActionStatus("success", "Email gotowy! Treść jest w emailu. W schowku wersja z klikalnymi linkami.");
+        } catch (error) {
+          setAdoActionStatus("warning", `${error.message} Treść wiadomości jest dostępna w otwartym Outlooku.`);
+        }
+      });
+      makeButton(`${ADO_QUICK_ACTIONS_ID}-planning`, "Wyślij ankietę planowania", event => {
+        event.preventDefault();
+        const workItem = getAdoWorkItem();
+        if (!workItem) {
+          setAdoActionStatus("error", "Nie znaleziono ID zadania ADO. Otwórz stronę elementu roboczego.");
+          return;
+        }
+        const email = makePlanningEmail(workItem);
+        const url = makeOutlookComposeUrl(email.subject, email.body);
+        const popup = window.open(url, "_blank");
+        if (!popup) location.href = url;
+        setAdoActionStatus("", "");
+      });
+      makeButton(`${ADO_QUICK_ACTIONS_ID}-business-central`, "Pokaż Project Task w BC", event => {
+        event.preventDefault();
+        const workItem = getAdoWorkItem();
+        if (!workItem) {
+          setAdoActionStatus("error", "Nie znaleziono ID zadania ADO. Otwórz stronę elementu roboczego.");
+          return;
+        }
+        window.open(makeBusinessCentralTaskUrl(workItem.id), "_blank", "noopener,noreferrer");
+        setAdoActionStatus("", "");
+      });
+      const status = document.createElement("div");
+      status.id = `${ADO_QUICK_ACTIONS_ID}-status`;
+      status.setAttribute("role", "status");
+      status.setAttribute("aria-live", "polite");
+      status.style.cssText = "display:none;padding:8px 12px;border-radius:4px;background:#fff;color:#222;font:12px/1.4 'Segoe UI',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.25)";
+      panel.appendChild(status);
+      document.body.appendChild(panel);
+    }
+  }
+
   function run() {
     applyAtlassianNavigationButton();
+    applyAdoQuickActions();
 
     const host = location.hostname || "";
     const isBC     = host === "businesscentral.dynamics.com";
