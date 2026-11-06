@@ -1276,10 +1276,7 @@
   }
 
   function makeOutlookComposeUrl(subject, body) {
-    const url = new URL(ADO_OUTLOOK_COMPOSE_URL);
-    url.searchParams.set("subject", subject);
-    url.searchParams.set("body", body);
-    return url.href;
+    return `${ADO_OUTLOOK_COMPOSE_URL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
   function makeEstimateEmail(workItem) {

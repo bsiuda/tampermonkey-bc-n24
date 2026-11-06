@@ -353,6 +353,9 @@ test("ADO actions generate the requested estimate, planning, and encoded Busines
   const estimateUrl = new URL(harness.openedUrls[0]);
   assert.equal(estimateUrl.origin, "https://outlook.office.com");
   assert.equal(estimateUrl.pathname, "/mail/deeplink/compose");
+  assert.doesNotMatch(estimateUrl.search, /\+/);
+  assert.match(estimateUrl.search, /subject=Wycena%20do%20akceptacji/);
+  assert.match(estimateUrl.search, /body=Dzie%C5%84%20dobry%2C%0A%0A/);
   assert.equal(estimateUrl.searchParams.get("subject"), "Wycena do akceptacji: N24 Meeting 123 Planning meeting - Azure DevOps #123");
   assert.match(estimateUrl.searchParams.get("body"), /Wykonanie niniejszej modyfikacji wyceniliśmy na kwotę XXX PLN/);
   assert.match(estimateUrl.searchParams.get("body"), /https:\/\/nav24\.atlassian\.net\/wiki\/spaces\/PRJ\/pages\/123/);
@@ -362,6 +365,9 @@ test("ADO actions generate the requested estimate, planning, and encoded Busines
 
   planningButton.dispatch("click");
   const planningUrl = new URL(harness.openedUrls[1]);
+  assert.doesNotMatch(planningUrl.search, /\+/);
+  assert.match(planningUrl.search, /subject=123%20N24%20%7C%20Planning%20meeting/);
+  assert.match(planningUrl.search, /body=Dzie%C5%84%20dobry%2C%0A%0A/);
   assert.equal(planningUrl.searchParams.get("subject"), "123 N24 | Planning meeting");
   assert.equal(
     planningUrl.searchParams.get("body"),
