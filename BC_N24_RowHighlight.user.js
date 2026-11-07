@@ -9,7 +9,7 @@
 // @match        https://nav24.atlassian.net/wiki/admin/guests
 // @match        https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users
 // @run-at       document-end
-// @version      1.5.1
+// @version      1.5.2
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -1381,14 +1381,18 @@
       panel.id = ADO_QUICK_ACTIONS_ID;
       panel.style.cssText = [
         "position:fixed",
-        "right:24px",
+        "left:50%",
         "bottom:24px",
+        "transform:translateX(-50%)",
         "z-index:2147483647",
         "display:flex",
-        "flex-direction:column",
-        "align-items:stretch",
+        "flex-direction:row",
+        "align-items:center",
+        "justify-content:center",
+        "flex-wrap:wrap",
         "gap:8px",
-        "max-width:min(360px,calc(100vw - 32px))",
+        "width:max-content",
+        "max-width:calc(100vw - 32px)",
         "font:600 14px/1.2 'Segoe UI',sans-serif"
       ].join(";");
       const makeButton = (id, label, onClick) => {
@@ -1404,7 +1408,8 @@
           "color:#fff",
           "font:inherit",
           "cursor:pointer",
-          "box-shadow:0 2px 8px rgba(0,0,0,.3)"
+          "box-shadow:0 2px 8px rgba(0,0,0,.3)",
+          "white-space:normal"
         ].join(";");
         button.addEventListener("click", onClick);
         panel.appendChild(button);
@@ -1452,7 +1457,7 @@
       status.id = `${ADO_QUICK_ACTIONS_ID}-status`;
       status.setAttribute("role", "status");
       status.setAttribute("aria-live", "polite");
-      status.style.cssText = "display:none;padding:8px 12px;border-radius:4px;background:#fff;color:#222;font:12px/1.4 'Segoe UI',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.25)";
+      status.style.cssText = "display:none;flex-basis:100%;box-sizing:border-box;max-width:100%;padding:8px 12px;border-radius:4px;background:#fff;color:#222;font:12px/1.4 'Segoe UI',sans-serif;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.25)";
       panel.appendChild(status);
       document.body.appendChild(panel);
     }

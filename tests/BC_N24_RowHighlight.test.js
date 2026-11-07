@@ -342,6 +342,11 @@ test("ADO actions generate the requested estimate, planning, and encoded Busines
 
   const panel = harness.document.getElementById("n24-ado-quick-actions");
   assert.ok(panel);
+  assert.match(panel.style.cssText, /left:50%/);
+  assert.match(panel.style.cssText, /transform:translateX\(-50%\)/);
+  assert.match(panel.style.cssText, /flex-direction:row/);
+  assert.match(panel.style.cssText, /justify-content:center/);
+  assert.match(panel.style.cssText, /flex-wrap:wrap/);
   const [estimateButton, planningButton, businessCentralButton] = panel.querySelectorAll("button");
   assert.deepEqual(
     [estimateButton.textContent, planningButton.textContent, businessCentralButton.textContent],
