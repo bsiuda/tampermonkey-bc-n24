@@ -2,7 +2,7 @@
 
 Userscript do Business Central rozwijany pod Tampermonkey.
 
-![Version](https://img.shields.io/badge/version-1.5.5-0a7b83?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.5.6-0a7b83?style=flat-square)
 ![Tampermonkey](https://img.shields.io/badge/Tampermonkey-userscript-4caf50?style=flat-square)
 ![Business Central](https://img.shields.io/badge/Business%20Central-N24-1f6feb?style=flat-square)
 
@@ -19,7 +19,7 @@ Skrypt pomaga w codziennej pracy w Business Central:
 - w Azure DevOps przycisk `Wyślij wycenę` tworzy wiadomość w Outlooku z opisem wyceny i linkami do elementu ADO oraz opcjonalnej strony Confluence; kopiuje wersję HTML i tekstową do schowka, a także dodaje komentarz `Wysłano wycenę.` w sekcji Discussion i zapisuje go skrótem Ctrl+S,
 - w Azure DevOps przycisk `Wyślij ankietę planowania` tworzy wiadomość Outlook z tematem zawierającym ID, kod projektu i tytuł oraz dodaje komentarz `Wysłano ankietę planowania.` w sekcji Discussion, zapisując go skrótem Ctrl+S,
 - w Azure DevOps przycisk `Pokaż Project Task w BC` otwiera stronę `50100` w Business Central z filtrem na ID work itemu,
-- w Azure DevOps przycisk `Dodaj subtask` otwiera formularz `Add link > New item`, po 5 sekundach ustawia `Link type: Child` i `Work Item Type: N24 Task`; tytuł pozostaje do uzupełnienia i zapis wymaga kliknięcia `Add link`,
+- w Azure DevOps przycisk `Dodaj subtask` używa rozwijanego `Add link` w sekcji `Related Work`, otwiera `New item`, po 5 sekundach ustawia `Link type: Child` i `Work Item Type: N24 Task`; tytuł pozostaje do uzupełnienia i zapis wymaga kliknięcia `Add link`,
 - podmienia wybrane etykiety pol,
 - koloruje daty księgowania i dokumentu w calym Business Central oraz zmienia opis daty księgowania na `Data księgowania (ostatni dzień msc)`; pozostale wskazane pola i wiersze koloruje na stronach `88`, `1001` i `50100` oraz w rozpoznanym po naglowkach widoku Dziennika projektow,
 - oznacza wiersze wedlug typu budzetu,
@@ -89,6 +89,10 @@ Pop-Location
 - wszyscy powinni instalowac skrypt z jednego centralnego URL, a nie z lokalnego pliku.
 
 ## Changelog
+
+### 1.5.6
+
+- poprawiono wybór rozwijanego `Add link` w sekcji `Related Work`, zamiast przycisku w `Development`.
 
 ### 1.5.5
 
