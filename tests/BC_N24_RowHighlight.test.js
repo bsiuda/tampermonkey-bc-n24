@@ -31,6 +31,9 @@ class Element {
     this.checked = false;
     this.value = "";
     this.title = "";
+    this.focusCount = 0;
+    this.dispatchedEvents = [];
+    this.clickCount = 0;
     this.parentElement = null;
     this.buttons = [];
     this._href = "";
@@ -74,9 +77,26 @@ class Element {
     this.listeners.set(name, listeners);
   }
 
+  focus() {
+    this.focusCount += 1;
+  }
+
+  dispatchEvent(event) {
+    this.dispatchedEvents.push(event);
+    for (const callback of this.listeners.get(event.type) || []) {
+      callback(event);
+    }
+    return true;
+  }
+
+  click() {
+    this.clickCount += 1;
+    this.dispatch("click");
+  }
+
   dispatch(name) {
     for (const callback of this.listeners.get(name) || []) {
-      callback({ preventDefault() {}, stopPropagation() {} });
+      callback({ type: name, preventDefault() {}, stopPropagation() {} });
     }
   }
 
@@ -146,7 +166,9 @@ function makeHarness({
     "Zużycie budżetu",
     "Ilość"
   ],
-  postingField = null
+  postingField = null,
+  discussionEditor = null,
+  adoElements = []
 } = {}) {
   const body = new Element("body", bodyText);
   body.innerText = bodyText;
@@ -159,6 +181,7 @@ function makeHarness({
   });
   const allRoots = [body, head, ...dialogs.map(item => item.dialog), ...headerElements];
   if (postingField) allRoots.push(postingField);
+  if (discussionEditor) allRoots.push(discussionEditor);
 
   const document = {
     body,
@@ -179,10 +202,38 @@ function makeHarness({
       if (selector === ".message-dialog") return dialogs.map(item => item.dialog);
       if (selector === '[id^="column_header_"]') return headerElements;
       if (selector === '[controlname="PostingDate"]' && postingField) return [postingField];
+      if (selector === 'select, [role="combobox"], input') {
+        return adoElements.filter(element =>
+          element.isConnected && (
+            element.tagName === "SELECT"
+            || element.tagName === "INPUT"
+            || element.getAttribute("role") === "combobox"
+          )
+        );
+      }
+      if (selector.includes("button") || selector.includes("[role=") || selector === "li") {
+        const selectors = selector.split(",").map(value => value.trim());
+        return adoElements.filter(element =>
+          element.isConnected && selectors.some(candidate =>
+            candidate === element.tagName.toLowerCase()
+            || candidate === "li" && element.tagName === "LI"
+            || candidate.startsWith("[role=")
+              && element.getAttribute("role") === candidate.match(/"([^"]+)"/)?.[1]
+          )
+        );
+      }
       return [];
     },
-    querySelector() {
+    querySelector(selector) {
+      if (selector === '[aria-label="Discussion"][contenteditable="true"]') {
+        return discussionEditor;
+      }
       return null;
+    },
+    execCommand(command, _showUI, value) {
+      if (command !== "insertText" || !discussionEditor) return false;
+      discussionEditor._textContent += value;
+      return true;
     }
   };
   head.appendChild = Element.prototype.appendChild.bind(head);
@@ -227,6 +278,18 @@ function makeHarness({
         this.data = data;
       }
     },
+    KeyboardEvent: class KeyboardEvent {
+      constructor(type, options) {
+        this.type = type;
+        Object.assign(this, options);
+      }
+    },
+    Event: class Event {
+      constructor(type, options) {
+        this.type = type;
+        Object.assign(this, options);
+      }
+    },
     NodeFilter: { SHOW_TEXT: 4, FILTER_REJECT: 2, FILTER_ACCEPT: 1 },
     MutationObserver: class {
       constructor(callback) {
@@ -253,6 +316,13 @@ function makeHarness({
     storage,
     timers,
     openedUrls,
+    runTimer(delay) {
+      const timer = timers.find(item => !item.cancelled && !item.ran && item.delay === delay);
+      if (!timer) return false;
+      timer.ran = true;
+      timer.callback();
+      return true;
+    },
     get clipboardItems() {
       return context.clipboardItems;
     },
@@ -320,11 +390,15 @@ test("Azure DevOps quick actions are limited to exact supported domains", () => 
 });
 
 test("ADO actions generate the requested estimate, planning, and encoded Business Central links", async () => {
+  const discussionEditor = new Element("div");
+  discussionEditor.setAttribute("aria-label", "Discussion");
+  discussionEditor.setAttribute("contenteditable", "true");
   const harness = makeHarness({
     hostname: "dev.azure.com",
     pathname: "/org/N24%20Cooperation/_workitems/edit/123",
     search: "?view=details",
-    title: "123: N24 Meeting 123 Planning meeting - Azure DevOps"
+    title: "123: N24 Meeting 123 Planning meeting - Azure DevOps",
+    discussionEditor
   });
   const provider = new Element("div", JSON.stringify({
     data: {
@@ -355,6 +429,11 @@ test("ADO actions generate the requested estimate, planning, and encoded Busines
 
   estimateButton.dispatch("click");
   await new Promise(resolve => setImmediate(resolve));
+  assert.equal(discussionEditor.textContent, "Wysłano wycenę.");
+  assert.equal(discussionEditor.focusCount, 1);
+  assert.equal(discussionEditor.dispatchedEvents[0].type, "keydown");
+  assert.equal(discussionEditor.dispatchedEvents[0].key, "s");
+  assert.equal(discussionEditor.dispatchedEvents[0].ctrlKey, true);
   const estimateUrl = new URL(harness.openedUrls[0]);
   assert.equal(estimateUrl.origin, "https://outlook.office.com");
   assert.equal(estimateUrl.pathname, "/mail/deeplink/compose");
@@ -369,6 +448,14 @@ test("ADO actions generate the requested estimate, planning, and encoded Busines
   assert.match(await harness.clipboardItems[0].data["text/html"].text(), /<a href="https:\/\/nav24\.atlassian\.net/);
 
   planningButton.dispatch("click");
+  assert.equal(
+    discussionEditor.textContent,
+    "Wysłano wycenę.Wysłano ankietę planowania."
+  );
+  assert.equal(discussionEditor.focusCount, 2);
+  assert.equal(discussionEditor.dispatchedEvents[2].type, "keydown");
+  assert.equal(discussionEditor.dispatchedEvents[2].key, "s");
+  assert.equal(discussionEditor.dispatchedEvents[2].ctrlKey, true);
   const planningUrl = new URL(harness.openedUrls[1]);
   assert.doesNotMatch(planningUrl.search, /\+/);
   assert.match(planningUrl.search, /subject=123%20N24%20%7C%20Planning%20meeting/);
@@ -386,12 +473,14 @@ test("ADO actions generate the requested estimate, planning, and encoded Busines
     "https://businesscentral.dynamics.com/1dc3db50-611a-4d1f-a628-3302743e8941/NAV24_PL/"
   );
   assert.equal(businessCentralUrl.searchParams.get("company"), "NAV24 Sp. z o.o.");
+  assert.match(businessCentralUrl.search, /company=NAV24%20Sp\.%20z%20o\.o\./);
+  assert.doesNotMatch(businessCentralUrl.search, /company=[^&]*\+/);
   assert.equal(businessCentralUrl.searchParams.get("page"), "50100");
   assert.equal(
     businessCentralUrl.searchParams.get("filter"),
     "'Job Task'.'AzureDev.Bill.WorkItemID N24' IS '123'"
   );
-  assert.match(businessCentralUrl.search, /filter=%27Job\+Task%27/);
+  assert.match(businessCentralUrl.search, /filter=%27Job%20Task%27/);
 });
 
 test("ADO actions reject routes without a numeric work item ID", () => {
@@ -401,7 +490,8 @@ test("ADO actions reject routes without a numeric work item ID", () => {
   ]) {
     const harness = makeHarness({ hostname: "dev.azure.com", pathname });
     const panel = harness.document.getElementById("n24-ado-quick-actions");
-    panel.querySelectorAll("button").forEach(button => button.dispatch("click"));
+    panel.querySelectorAll("button").slice(0, 3)
+      .forEach(button => button.dispatch("click"));
     assert.deepEqual(harness.openedUrls, []);
     assert.match(
       harness.document.getElementById("n24-ado-quick-actions-status").textContent,
@@ -410,11 +500,64 @@ test("ADO actions reject routes without a numeric work item ID", () => {
   }
 });
 
+test("Add subtask opens Add link > New item, waits five seconds, and sets Child and N24 Task", async () => {
+  const addLinkButton = new Element("button", "Add link");
+  const newItemOption = new Element("button", "New item");
+  newItemOption.isConnected = false;
+  const linkType = new Element("select");
+  linkType.setAttribute("aria-label", "Link type");
+  linkType.options = [
+    { textContent: "Related", value: "Related" },
+    { textContent: "Child", value: "Child" }
+  ];
+  linkType.isConnected = false;
+  const workItemType = new Element("select");
+  workItemType.setAttribute("aria-label", "Work Item Type");
+  workItemType.options = [
+    { textContent: "Bug", value: "Bug" },
+    { textContent: "N24 Task", value: "N24 Task" }
+  ];
+  workItemType.isConnected = false;
+  addLinkButton.addEventListener("click", () => {
+    newItemOption.isConnected = true;
+  });
+  newItemOption.addEventListener("click", () => {
+    linkType.isConnected = true;
+    workItemType.isConnected = true;
+  });
+
+  const harness = makeHarness({
+    hostname: "dev.azure.com",
+    pathname: "/org/project/_workitems/edit/88",
+    adoElements: [addLinkButton, newItemOption, linkType, workItemType]
+  });
+  const panel = harness.document.getElementById("n24-ado-quick-actions");
+  panel.querySelectorAll("button")[3].dispatch("click");
+
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(addLinkButton.clickCount, 1);
+  assert.equal(newItemOption.clickCount, 1);
+  assert.ok(harness.timers.some(timer => timer.delay === 5000));
+  assert.equal(harness.runTimer(5000), true);
+  await new Promise(resolve => setImmediate(resolve));
+
+  assert.equal(linkType.value, "Child");
+  assert.equal(workItemType.value, "N24 Task");
+  assert.equal(
+    harness.document.getElementById("n24-ado-quick-actions-status").textContent,
+    "Ustawiono Link type: Child i Work Item Type: N24 Task. Uzupełnij tytuł i kliknij Add link."
+  );
+});
+
 test("estimate action reports denied clipboard access without losing the Outlook draft", async () => {
+  const discussionEditor = new Element("div");
+  discussionEditor.setAttribute("aria-label", "Discussion");
+  discussionEditor.setAttribute("contenteditable", "true");
   const harness = makeHarness({
     hostname: "visualstudio.com",
     pathname: "/org/project/_workitems/edit/88",
-    title: "88: Test"
+    title: "88: Test",
+    discussionEditor
   });
   const panel = harness.document.getElementById("n24-ado-quick-actions");
   harness.setClipboardWrite(async () => { throw new Error("Permission denied"); });
@@ -425,6 +568,22 @@ test("estimate action reports denied clipboard access without losing the Outlook
   assert.match(
     harness.document.getElementById("n24-ado-quick-actions-status").textContent,
     /Permission denied/
+  );
+});
+
+test("estimate action reports when Discussion is unavailable and still opens the Outlook draft", async () => {
+  const harness = makeHarness({
+    hostname: "dev.azure.com",
+    pathname: "/org/project/_workitems/edit/88",
+    title: "88: Test"
+  });
+  harness.document.getElementById("n24-ado-quick-actions")
+    .querySelectorAll("button")[0].dispatch("click");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(harness.openedUrls.length, 1);
+  assert.match(
+    harness.document.getElementById("n24-ado-quick-actions-status").textContent,
+    /Nie znaleziono edytora Discussion/
   );
 });
 
