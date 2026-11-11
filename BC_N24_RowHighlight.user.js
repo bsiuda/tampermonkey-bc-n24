@@ -9,7 +9,7 @@
 // @match        https://nav24.atlassian.net/wiki/admin/guests
 // @match        https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users
 // @run-at       document-end
-// @version      1.5.5
+// @version      1.5.6
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -1363,6 +1363,56 @@
     ) || null;
   }
 
+  function hasAdoDropdownBehavior(element) {
+    const popup = element.getAttribute("aria-haspopup");
+    const expanded = element.getAttribute("aria-expanded");
+    const className = String(element.className || "");
+    return Boolean(popup && popup !== "false")
+      || expanded !== null
+      || /dropdown|splitbutton|split-button/i.test(className);
+  }
+
+  function findRelatedWorkAddLinkButton() {
+    const addLinkSelector = 'button, [role="button"], a';
+    const matchesAddLink = element =>
+      normalizeAdoLabel(element.getAttribute("aria-label")) === "add link"
+      || normalizeAdoLabel(element.textContent) === "add link";
+    const headings = [...document.querySelectorAll(
+      'h1, h2, h3, h4, [role="heading"], [aria-level], div, span'
+    )].filter(element =>
+      normalizeAdoLabel(element.textContent) === "related work"
+    );
+
+    for (const heading of headings) {
+      let section = heading;
+      for (let depth = 0; section && depth < 8; depth += 1) {
+        const controls = [...section.querySelectorAll(addLinkSelector)];
+        const addLinks = controls.filter(matchesAddLink);
+        if (addLinks.length) {
+          const dropdown = addLinks.find(hasAdoDropdownBehavior);
+          if (dropdown) return dropdown;
+
+          const addLink = addLinks.length === 1 ? addLinks[0] : null;
+          if (addLink) {
+            const menuTrigger = controls.find(control =>
+              hasAdoDropdownBehavior(control)
+              && control.parentElement === addLink.parentElement
+            );
+            return menuTrigger || addLink;
+          }
+        }
+        section = section.parentElement;
+      }
+    }
+
+    const addLinks = [...document.querySelectorAll(addLinkSelector)]
+      .filter(matchesAddLink);
+    const dropdowns = addLinks.filter(hasAdoDropdownBehavior);
+    if (dropdowns.length === 1) return dropdowns[0];
+    if (addLinks.length === 1) return addLinks[0];
+    return null;
+  }
+
   function waitForAdoElement(findElement, timeoutMs = 10000) {
     return new Promise((resolve, reject) => {
       const deadline = Date.now() + timeoutMs;
@@ -1438,9 +1488,9 @@
     }
 
     try {
-      const addLinkButton = findAdoTextElement("Add link", 'button, [role="button"]');
+      const addLinkButton = findRelatedWorkAddLinkButton();
       if (!addLinkButton) {
-        throw new Error("Nie znaleziono przycisku „Add link” w sekcji Related Work.");
+        throw new Error("Nie znaleziono rozwijanego „Add link” w sekcji Related Work.");
       }
       addLinkButton.click();
 

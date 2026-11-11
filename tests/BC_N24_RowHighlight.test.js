@@ -119,10 +119,26 @@ class Element {
   }
 
   querySelectorAll(selector) {
-    if (selector === "button") {
-      return [...this.buttons, ...this.children.filter(child => child.tagName === "BUTTON")];
-    }
-    return [];
+    const selectors = selector.split(",").map(value => value.trim());
+    const matches = element => selectors.some(candidate => {
+      if (candidate === element.tagName.toLowerCase()) return true;
+      const role = candidate.match(/^\[role="([^"]+)"\]$/)?.[1];
+      if (role) return element.getAttribute("role") === role;
+      const attribute = candidate.match(/^\[([^\]]+)\]$/)?.[1];
+      return attribute ? element.getAttribute(attribute) !== null : false;
+    });
+    const results = [];
+    const seen = new Set();
+    const visit = element => {
+      if (!seen.has(element)) {
+        seen.add(element);
+        if (element.isConnected && matches(element)) results.push(element);
+        element.children.forEach(visit);
+      }
+    };
+    this.buttons.forEach(visit);
+    this.children.forEach(visit);
+    return results;
   }
 
   find(predicate) {
@@ -208,6 +224,20 @@ function makeHarness({
             element.tagName === "SELECT"
             || element.tagName === "INPUT"
             || element.getAttribute("role") === "combobox"
+          )
+        );
+      }
+      if (selector.startsWith("h1, h2, h3, h4")) {
+        const selectors = selector.split(",").map(value => value.trim());
+        return adoElements.filter(element =>
+          element.isConnected && selectors.some(candidate =>
+            candidate === element.tagName.toLowerCase()
+            || candidate.startsWith("[role=")
+              && element.getAttribute("role") === candidate.match(/"([^"]+)"/)?.[1]
+            || candidate.startsWith("[aria-level]")
+              && element.getAttribute("aria-level") !== null
+            || candidate === "div" && element.tagName === "DIV"
+            || candidate === "span" && element.tagName === "SPAN"
           )
         );
       }
@@ -500,8 +530,12 @@ test("ADO actions reject routes without a numeric work item ID", () => {
   }
 });
 
-test("Add subtask opens Add link > New item, waits five seconds, and sets Child and N24 Task", async () => {
+test("Add subtask uses the Related Work dropdown, waits five seconds, and sets Child and N24 Task", async () => {
+  const developmentAddLink = new Element("a", "Add link");
+  const relatedWorkSection = new Element("section");
+  const relatedWorkHeading = new Element("h2", "Related Work");
   const addLinkButton = new Element("button", "Add link");
+  addLinkButton.setAttribute("aria-haspopup", "menu");
   const newItemOption = new Element("button", "New item");
   newItemOption.isConnected = false;
   const linkType = new Element("select");
@@ -518,6 +552,8 @@ test("Add subtask opens Add link > New item, waits five seconds, and sets Child 
     { textContent: "N24 Task", value: "N24 Task" }
   ];
   workItemType.isConnected = false;
+  relatedWorkSection.appendChild(relatedWorkHeading);
+  relatedWorkSection.appendChild(addLinkButton);
   addLinkButton.addEventListener("click", () => {
     newItemOption.isConnected = true;
   });
@@ -529,12 +565,20 @@ test("Add subtask opens Add link > New item, waits five seconds, and sets Child 
   const harness = makeHarness({
     hostname: "dev.azure.com",
     pathname: "/org/project/_workitems/edit/88",
-    adoElements: [addLinkButton, newItemOption, linkType, workItemType]
+    adoElements: [
+      developmentAddLink,
+      relatedWorkHeading,
+      addLinkButton,
+      newItemOption,
+      linkType,
+      workItemType
+    ]
   });
   const panel = harness.document.getElementById("n24-ado-quick-actions");
   panel.querySelectorAll("button")[3].dispatch("click");
 
   await new Promise(resolve => setImmediate(resolve));
+  assert.equal(developmentAddLink.clickCount, 0);
   assert.equal(addLinkButton.clickCount, 1);
   assert.equal(newItemOption.clickCount, 1);
   assert.ok(harness.timers.some(timer => timer.delay === 5000));
