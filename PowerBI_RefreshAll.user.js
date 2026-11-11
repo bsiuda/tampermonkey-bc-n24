@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Power BI - odświeżanie wszystkich elementów
 // @namespace    local.powerbi.refresh-queue
-// @version      1.1.0
+// @version      1.2.0
 // @description  Uruchamia po kolei przyciski „Odśwież teraz” w odstępie jednej sekundy i oznacza przetworzone wiersze.
 // @match        https://app.powerbi.com/groups/bbd5c61c-f85b-4fd4-80cc-89faade4223e/list*
 // @match        https://app.powerbi.com/groups/a8266aa2-bc91-4443-b49c-663a5fef8c62/list*
@@ -32,6 +32,13 @@
     const styleId = 'tm-pbi-refresh-styles';
     const panelId = 'tm-pbi-refresh-panel';
     const confirmationId = 'tm-pbi-refresh-confirmation';
+    const navigationLinkId = 'tm-pbi-workspace-link';
+    const workspaceUrls = {
+        'bbd5c61c-f85b-4fd4-80cc-89faade4223e':
+            'https://app.powerbi.com/groups/bbd5c61c-f85b-4fd4-80cc-89faade4223e/list?experience=power-bi',
+        'a8266aa2-bc91-4443-b49c-663a5fef8c62':
+            'https://app.powerbi.com/groups/a8266aa2-bc91-4443-b49c-663a5fef8c62/list?experience=power-bi'
+    };
 
     const queuedButtons = new WeakSet();
     const processedButtons = new WeakSet();
@@ -149,6 +156,34 @@
             background: #eef2f7;
         }
 
+        #${navigationLinkId} {
+            position: fixed;
+            left: 22px;
+            bottom: 22px;
+            z-index: 2147483647;
+            display: inline-flex;
+            align-items: center;
+            min-height: 40px;
+            padding: 0 15px;
+            box-sizing: border-box;
+            border: 1px solid rgba(37, 99, 167, 0.3);
+            border-radius: 11px;
+            background: #2563a7;
+            color: #fff;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
+            font: 600 13px/1.2 "Segoe UI", sans-serif;
+            text-decoration: none;
+        }
+
+        #${navigationLinkId}:hover {
+            background: #1d528c;
+        }
+
+        #${navigationLinkId}:focus-visible {
+            outline: 3px solid rgba(37, 99, 167, 0.35);
+            outline-offset: 3px;
+        }
+
         #${confirmationId} {
             position: fixed;
             inset: 0;
@@ -247,6 +282,30 @@
             style.textContent = styles;
             (document.head || document.documentElement).appendChild(style);
         }
+    }
+
+    function getAlternateWorkspaceUrl() {
+        const currentWorkspaceId = location.pathname.match(
+            /^\/groups\/([^/]+)\/list\/?$/
+        )?.[1];
+
+        return Object.entries(workspaceUrls)
+            .find(([workspaceId]) => workspaceId !== currentWorkspaceId)?.[1];
+    }
+
+    function ensureNavigationLink() {
+        ensureStyles();
+
+        if (document.getElementById(navigationLinkId)) return;
+
+        const link = document.createElement('a');
+        link.id = navigationLinkId;
+        link.textContent = 'Otwórz drugi obszar Power BI';
+        link.href = getAlternateWorkspaceUrl();
+        link.addEventListener('click', () => {
+            link.href = getAlternateWorkspaceUrl();
+        });
+        document.body.appendChild(link);
     }
 
     function ensureInterface() {
@@ -583,6 +642,7 @@
             });
         }
 
+        ensureNavigationLink();
         const confirmed = await showConfirmation();
         if (confirmed) startQueue();
     }

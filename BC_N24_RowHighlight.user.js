@@ -9,7 +9,7 @@
 // @match        https://nav24.atlassian.net/wiki/admin/guests
 // @match        https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users
 // @run-at       document-end
-// @version      1.5.2
+// @version      1.5.5
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -1335,6 +1335,7 @@
     url.searchParams.set("company", ADO_BC_COMPANY);
     url.searchParams.set("page", "50100");
     url.searchParams.set("filter", `'Job Task'.'AzureDev.Bill.WorkItemID N24' IS '${workItemId}'`);
+    url.search = url.search.replace(/\+/g, "%20");
     return url.href;
   }
 
@@ -1348,6 +1349,149 @@
 
   function openAdoOutlookCompose(url) {
     window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function normalizeAdoLabel(value) {
+    return String(value || "").replace(/[\s:*]+/g, " ").trim().toLowerCase();
+  }
+
+  function findAdoTextElement(text, selector) {
+    const expected = normalizeAdoLabel(text);
+    return [...document.querySelectorAll(selector)].find(element =>
+      normalizeAdoLabel(element.getAttribute("aria-label")) === expected
+      || normalizeAdoLabel(element.textContent) === expected
+    ) || null;
+  }
+
+  function waitForAdoElement(findElement, timeoutMs = 10000) {
+    return new Promise((resolve, reject) => {
+      const deadline = Date.now() + timeoutMs;
+      const check = () => {
+        const element = findElement();
+        if (element) {
+          resolve(element);
+        } else if (Date.now() >= deadline) {
+          reject(new Error("Nie znaleziono oczekiwanego elementu w Azure DevOps."));
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
+    });
+  }
+
+  function findAdoDropdown(label) {
+    const expected = normalizeAdoLabel(label);
+    const controls = document.querySelectorAll('select, [role="combobox"], input');
+
+    for (const control of controls) {
+      const accessibleName = normalizeAdoLabel(control.getAttribute("aria-label"));
+      if (accessibleName === expected) return control;
+
+      const labelledBy = (control.getAttribute("aria-labelledby") || "")
+        .split(/\s+/)
+        .map(id => document.getElementById(id)?.textContent || "")
+        .map(normalizeAdoLabel);
+      if (labelledBy.includes(expected)) return control;
+
+      const labels = control.labels ? [...control.labels] : [];
+      const wrappingLabel = control.closest?.("label");
+      if (wrappingLabel) labels.push(wrappingLabel);
+      const matchingLabel = labels.some(item =>
+        normalizeAdoLabel(item.textContent) === expected
+      );
+      if (matchingLabel) return control;
+    }
+
+    throw new Error(`Nie znaleziono pola „${label}” w formularzu Add link.`);
+  }
+
+  async function selectAdoDropdownValue(label, value) {
+    const control = findAdoDropdown(label);
+
+    if (control.tagName === "SELECT") {
+      const option = [...control.options].find(item =>
+        normalizeAdoLabel(item.textContent) === normalizeAdoLabel(value)
+        || normalizeAdoLabel(item.value) === normalizeAdoLabel(value)
+      );
+      if (!option) {
+        throw new Error(`Nie znaleziono wartości „${value}” dla pola „${label}”.`);
+      }
+      control.value = option.value;
+      control.dispatchEvent(new Event("input", { bubbles: true }));
+      control.dispatchEvent(new Event("change", { bubbles: true }));
+      return;
+    }
+
+    control.click();
+    const option = await waitForAdoElement(() =>
+      findAdoTextElement(value, '[role="option"], [role="menuitem"], li, button')
+    );
+    option.click();
+  }
+
+  async function addAdoSubtask(event) {
+    event.preventDefault();
+    if (!getAdoWorkItem()) {
+      setAdoActionStatus("error", "Otwórz element roboczy Azure DevOps przed dodaniem subtaska.");
+      return;
+    }
+
+    try {
+      const addLinkButton = findAdoTextElement("Add link", 'button, [role="button"]');
+      if (!addLinkButton) {
+        throw new Error("Nie znaleziono przycisku „Add link” w sekcji Related Work.");
+      }
+      addLinkButton.click();
+
+      const newItemOption = await waitForAdoElement(() =>
+        findAdoTextElement("New item", 'button, [role="button"], [role="menuitem"]')
+      );
+      newItemOption.click();
+      setAdoActionStatus("info", "Czekam na formularz Add link…");
+
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      await selectAdoDropdownValue("Link type", "Child");
+      await selectAdoDropdownValue("Work Item Type", "N24 Task");
+      setAdoActionStatus(
+        "success",
+        "Ustawiono Link type: Child i Work Item Type: N24 Task. Uzupełnij tytuł i kliknij Add link."
+      );
+    } catch (error) {
+      setAdoActionStatus("error", error.message);
+    }
+  }
+
+  function saveAdoDiscussionComment(message) {
+    const editor = document.querySelector(
+      '[aria-label="Discussion"][contenteditable="true"]'
+    );
+    if (!editor) {
+      throw new Error("Nie znaleziono edytora Discussion. Komentarz nie został zapisany.");
+    }
+
+    editor.focus();
+    const inserted = document.execCommand("insertText", false, message);
+    if (!inserted) {
+      throw new Error("Nie udało się wpisać komentarza do sekcji Discussion.");
+    }
+
+    const saveEvent = new KeyboardEvent("keydown", {
+      key: "s",
+      code: "KeyS",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true
+    });
+    editor.dispatchEvent(saveEvent);
+    editor.dispatchEvent(new KeyboardEvent("keyup", {
+      key: "s",
+      code: "KeyS",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true
+    }));
+    return true;
   }
 
   async function copyEstimateToClipboard(estimate) {
@@ -1421,13 +1565,25 @@
           setAdoActionStatus("error", "Nie znaleziono ID zadania ADO. Otwórz stronę elementu roboczego.");
           return;
         }
+        let discussionStatus = "";
+        try {
+          saveAdoDiscussionComment("Wysłano wycenę.");
+        } catch (error) {
+          discussionStatus = ` ${error.message}`;
+        }
         const estimate = makeEstimateEmail(workItem);
         openAdoOutlookCompose(makeOutlookComposeUrl(estimate.subject, estimate.body));
         try {
           await copyEstimateToClipboard(estimate);
-          setAdoActionStatus("success", "Email gotowy! Treść jest w emailu. W schowku wersja z klikalnymi linkami.");
+          setAdoActionStatus(
+            discussionStatus ? "warning" : "success",
+            `Email gotowy! Treść jest w emailu. W schowku wersja z klikalnymi linkami.${discussionStatus}`
+          );
         } catch (error) {
-          setAdoActionStatus("warning", `${error.message} Treść wiadomości jest dostępna w otwartym Outlooku.`);
+          setAdoActionStatus(
+            "warning",
+            `${error.message} Treść wiadomości jest dostępna w otwartym Outlooku.${discussionStatus}`
+          );
         }
       });
       makeButton(`${ADO_QUICK_ACTIONS_ID}-planning`, "Wyślij ankietę planowania", event => {
@@ -1437,11 +1593,20 @@
           setAdoActionStatus("error", "Nie znaleziono ID zadania ADO. Otwórz stronę elementu roboczego.");
           return;
         }
+        let discussionStatus = "";
+        try {
+          saveAdoDiscussionComment("Wysłano ankietę planowania.");
+        } catch (error) {
+          discussionStatus = ` ${error.message}`;
+        }
         const email = makePlanningEmail(workItem);
         const url = makeOutlookComposeUrl(email.subject, email.body);
         const popup = window.open(url, "_blank");
         if (!popup) location.href = url;
-        setAdoActionStatus("", "");
+        setAdoActionStatus(
+          discussionStatus ? "warning" : "success",
+          discussionStatus || "Ankieta planowania została przygotowana."
+        );
       });
       makeButton(`${ADO_QUICK_ACTIONS_ID}-business-central`, "Pokaż Project Task w BC", event => {
         event.preventDefault();
@@ -1453,6 +1618,7 @@
         window.open(makeBusinessCentralTaskUrl(workItem.id), "_blank", "noopener,noreferrer");
         setAdoActionStatus("", "");
       });
+      makeButton(`${ADO_QUICK_ACTIONS_ID}-subtask`, "Dodaj subtask", addAdoSubtask);
       const status = document.createElement("div");
       status.id = `${ADO_QUICK_ACTIONS_ID}-status`;
       status.setAttribute("role", "status");
