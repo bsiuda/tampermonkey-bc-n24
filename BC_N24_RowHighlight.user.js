@@ -9,7 +9,7 @@
 // @match        https://nav24.atlassian.net/wiki/admin/guests
 // @match        https://admin.atlassian.com/o/093c4d98-9ef4-4ee0-a422-2f94a77b115f/users
 // @run-at       document-end
-// @version      1.5.6
+// @version      1.5.7
 // @downloadURL  https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @updateURL    https://raw.githubusercontent.com/bsiuda/tampermonkey-bc-n24/main/BC_N24_RowHighlight.user.js
 // @chatgptURL   https://chatgpt.com/share/6aa50138-faa8-83eb-8104-e1efb7d80301
@@ -139,6 +139,7 @@
   const ADO_OUTLOOK_COMPOSE_URL = "https://outlook.office.com/mail/deeplink/compose";
   const ADO_BC_TASK_BASE_URL = "https://businesscentral.dynamics.com/1dc3db50-611a-4d1f-a628-3302743e8941/NAV24_PL/";
   const ADO_BC_COMPANY = "NAV24 Sp. z o.o.";
+  const ADO_BC_TASK_BOOKMARK = "4A_6QMAAAJ7_1UATQBPAC8AVQBJAFIALwAyADAAMgA0AC8AMQA0AAAAAnv_UgAuADAAMwAuADEAMwAwADcAOQA4AF8ARgBQ";
 
   const MASK_SOURCE_TEXT = "BE778D2A";
   const MASK_TARGET_TEXT = "DEL_BSIUDA";
@@ -1334,7 +1335,17 @@
     const url = new URL(ADO_BC_TASK_BASE_URL);
     url.searchParams.set("company", ADO_BC_COMPANY);
     url.searchParams.set("page", "50100");
-    url.searchParams.set("filter", `'Job Task'.'AzureDev.Bill.WorkItemID N24' IS '${workItemId}'`);
+    url.searchParams.set("filter", `'Job Task'.'Billable Issue ID N24' IS '${workItemId}'`);
+    url.searchParams.set("bookmark", ADO_BC_TASK_BOOKMARK);
+    url.search = url.search.replace(/\+/g, "%20");
+    return url.href;
+  }
+
+  function makeBusinessCentralPlanningLineUrl(workItemId) {
+    const url = new URL(ADO_BC_TASK_BASE_URL);
+    url.searchParams.set("company", ADO_BC_COMPANY);
+    url.searchParams.set("page", "1007");
+    url.searchParams.set("filter", `'Job Planning Line'.'Job Task No.' IS '*${workItemId}*'`);
     url.search = url.search.replace(/\+/g, "%20");
     return url.href;
   }
@@ -1589,7 +1600,7 @@
         "max-width:calc(100vw - 32px)",
         "font:600 14px/1.2 'Segoe UI',sans-serif"
       ].join(";");
-      const makeButton = (id, label, onClick) => {
+      const makeButton = (id, label, onClick, background = "#0078d4") => {
         const button = document.createElement("button");
         button.id = id;
         button.type = "button";
@@ -1598,7 +1609,7 @@
           "padding:11px 16px",
           "border:0",
           "border-radius:6px",
-          "background:#0078d4",
+          `background:${background}`,
           "color:#fff",
           "font:inherit",
           "cursor:pointer",
@@ -1667,7 +1678,17 @@
         }
         window.open(makeBusinessCentralTaskUrl(workItem.id), "_blank", "noopener,noreferrer");
         setAdoActionStatus("", "");
-      });
+      }, "#008272");
+      makeButton(`${ADO_QUICK_ACTIONS_ID}-planning-lines`, "Otwórz JPL", event => {
+        event.preventDefault();
+        const workItem = getAdoWorkItem();
+        if (!workItem) {
+          setAdoActionStatus("error", "Nie znaleziono ID zadania ADO. Otwórz stronę elementu roboczego.");
+          return;
+        }
+        window.open(makeBusinessCentralPlanningLineUrl(workItem.id), "_blank", "noopener,noreferrer");
+        setAdoActionStatus("", "");
+      }, "#00a69c");
       makeButton(`${ADO_QUICK_ACTIONS_ID}-subtask`, "Dodaj subtask", addAdoSubtask);
       const status = document.createElement("div");
       status.id = `${ADO_QUICK_ACTIONS_ID}-status`;

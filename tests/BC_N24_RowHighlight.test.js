@@ -451,11 +451,23 @@ test("ADO actions generate the requested estimate, planning, and encoded Busines
   assert.match(panel.style.cssText, /flex-direction:row/);
   assert.match(panel.style.cssText, /justify-content:center/);
   assert.match(panel.style.cssText, /flex-wrap:wrap/);
-  const [estimateButton, planningButton, businessCentralButton] = panel.querySelectorAll("button");
+  const [
+    estimateButton,
+    planningButton,
+    businessCentralButton,
+    planningLinesButton
+  ] = panel.querySelectorAll("button");
   assert.deepEqual(
-    [estimateButton.textContent, planningButton.textContent, businessCentralButton.textContent],
-    ["Wyślij wycenę", "Wyślij ankietę planowania", "Pokaż Project Task w BC"]
+    [
+      estimateButton.textContent,
+      planningButton.textContent,
+      businessCentralButton.textContent,
+      planningLinesButton.textContent
+    ],
+    ["Wyślij wycenę", "Wyślij ankietę planowania", "Pokaż Project Task w BC", "Otwórz JPL"]
   );
+  assert.match(businessCentralButton.style.cssText, /background:#008272/);
+  assert.match(planningLinesButton.style.cssText, /background:#00a69c/);
 
   estimateButton.dispatch("click");
   await new Promise(resolve => setImmediate(resolve));
@@ -508,9 +520,26 @@ test("ADO actions generate the requested estimate, planning, and encoded Busines
   assert.equal(businessCentralUrl.searchParams.get("page"), "50100");
   assert.equal(
     businessCentralUrl.searchParams.get("filter"),
-    "'Job Task'.'AzureDev.Bill.WorkItemID N24' IS '123'"
+    "'Job Task'.'Billable Issue ID N24' IS '123'"
+  );
+  assert.equal(
+    businessCentralUrl.searchParams.get("bookmark"),
+    "4A_6QMAAAJ7_1UATQBPAC8AVQBJAFIALwAyADAAMgA0AC8AMQA0AAAAAnv_UgAuADAAMwAuADEAMwAwADcAOQA4AF8ARgBQ"
   );
   assert.match(businessCentralUrl.search, /filter=%27Job%20Task%27/);
+
+  planningLinesButton.dispatch("click");
+  const planningLinesUrl = new URL(harness.openedUrls[3]);
+  assert.equal(
+    `${planningLinesUrl.origin}${planningLinesUrl.pathname}`,
+    "https://businesscentral.dynamics.com/1dc3db50-611a-4d1f-a628-3302743e8941/NAV24_PL/"
+  );
+  assert.equal(planningLinesUrl.searchParams.get("company"), "NAV24 Sp. z o.o.");
+  assert.equal(planningLinesUrl.searchParams.get("page"), "1007");
+  assert.equal(
+    planningLinesUrl.searchParams.get("filter"),
+    "'Job Planning Line'.'Job Task No.' IS '*123*'"
+  );
 });
 
 test("ADO actions reject routes without a numeric work item ID", () => {
@@ -520,7 +549,7 @@ test("ADO actions reject routes without a numeric work item ID", () => {
   ]) {
     const harness = makeHarness({ hostname: "dev.azure.com", pathname });
     const panel = harness.document.getElementById("n24-ado-quick-actions");
-    panel.querySelectorAll("button").slice(0, 3)
+    panel.querySelectorAll("button").slice(0, 4)
       .forEach(button => button.dispatch("click"));
     assert.deepEqual(harness.openedUrls, []);
     assert.match(
@@ -575,7 +604,7 @@ test("Add subtask uses the Related Work dropdown, waits five seconds, and sets C
     ]
   });
   const panel = harness.document.getElementById("n24-ado-quick-actions");
-  panel.querySelectorAll("button")[3].dispatch("click");
+  panel.querySelectorAll("button")[4].dispatch("click");
 
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(developmentAddLink.clickCount, 0);

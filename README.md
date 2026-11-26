@@ -2,7 +2,7 @@
 
 Userscript do Business Central rozwijany pod Tampermonkey.
 
-![Version](https://img.shields.io/badge/version-1.5.6-0a7b83?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.5.7-0a7b83?style=flat-square)
 ![Tampermonkey](https://img.shields.io/badge/Tampermonkey-userscript-4caf50?style=flat-square)
 ![Business Central](https://img.shields.io/badge/Business%20Central-N24-1f6feb?style=flat-square)
 
@@ -18,7 +18,7 @@ Skrypt pomaga w codziennej pracy w Business Central:
 - funkcje Business Central i HRnest uruchamia tylko na `businesscentral.dynamics.com` i `app.hrnest.io`; na dokladnych stronach administracyjnych Atlassian dodaje czerwony przycisk nawigacyjny miedzy gosciami Confluence a uzytkownikami organizacji; na `visualstudio.com` (takze subdomenach) i `dev.azure.com` pokazuje przyciski szybkich akcji Azure DevOps,
 - w Azure DevOps przycisk `Wyślij wycenę` tworzy wiadomość w Outlooku z opisem wyceny i linkami do elementu ADO oraz opcjonalnej strony Confluence; kopiuje wersję HTML i tekstową do schowka, a także dodaje komentarz `Wysłano wycenę.` w sekcji Discussion i zapisuje go skrótem Ctrl+S,
 - w Azure DevOps przycisk `Wyślij ankietę planowania` tworzy wiadomość Outlook z tematem zawierającym ID, kod projektu i tytuł oraz dodaje komentarz `Wysłano ankietę planowania.` w sekcji Discussion, zapisując go skrótem Ctrl+S,
-- w Azure DevOps przycisk `Pokaż Project Task w BC` otwiera stronę `50100` w Business Central z filtrem na ID work itemu,
+- w Azure DevOps przyciski `Pokaż Project Task w BC` i `Otwórz JPL` otwierają odpowiednio Project Task (`50100`) z filtrem Billable Issue ID oraz Job Planning Lines (`1007`) z filtrem na numer zadania projektu,
 - w Azure DevOps przycisk `Dodaj subtask` używa rozwijanego `Add link` w sekcji `Related Work`, otwiera `New item`, po 5 sekundach ustawia `Link type: Child` i `Work Item Type: N24 Task`; tytuł pozostaje do uzupełnienia i zapis wymaga kliknięcia `Add link`,
 - podmienia wybrane etykiety pol,
 - koloruje daty księgowania i dokumentu w calym Business Central oraz zmienia opis daty księgowania na `Data księgowania (ostatni dzień msc)`; pozostale wskazane pola i wiersze koloruje na stronach `88`, `1001` i `50100` oraz w rozpoznanym po naglowkach widoku Dziennika projektow,
@@ -89,6 +89,11 @@ Pop-Location
 - wszyscy powinni instalowac skrypt z jednego centralnego URL, a nie z lokalnego pliku.
 
 ## Changelog
+
+### 1.5.7
+
+- poprawiono link do Project Task w Business Central i dodano przycisk `Otwórz JPL`,
+- przyciski do Business Central wyróżniono kolorami logo Dynamics 365 Business Central.
 
 ### 1.5.6
 
